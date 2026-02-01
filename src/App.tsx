@@ -13,6 +13,15 @@ import Presenca from "./pages/Presenca";
 import Financeiro from "./pages/Financeiro";
 import Cantina from "./pages/Cantina";
 import Configuracoes from "./pages/Configuracoes";
+import CRM from "./pages/CRM";
+import Eventos from "./pages/Eventos";
+import Graduacao from "./pages/Graduacao";
+import Comunicacao from "./pages/Comunicacao";
+import Relatorios from "./pages/Relatorios";
+import Perfil from "./pages/Perfil";
+import CTs from "./pages/CTs";
+import FeatureFlags from "./pages/FeatureFlags";
+import CaixaDia from "./pages/CaixaDia";
 import MainLayout from "./components/layouts/MainLayout";
 import NotFound from "./pages/NotFound";
 
@@ -36,21 +45,21 @@ const App = () => (
                 <Route path="/financeiro" element={<Financeiro />} />
                 <Route path="/cantina" element={<Cantina />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
-                <Route path="/mensagens" element={<Dashboard />} />
-                <Route path="/graduacao" element={<Dashboard />} />
-                <Route path="/eventos" element={<Dashboard />} />
-                <Route path="/relatorios" element={<Dashboard />} />
-                <Route path="/comunicacao" element={<Dashboard />} />
-                <Route path="/crm" element={<Dashboard />} />
-                <Route path="/perfil" element={<Dashboard />} />
-                <Route path="/frequencia" element={<Dashboard />} />
-                <Route path="/extrato" element={<Dashboard />} />
+                <Route path="/crm" element={<CRM />} />
+                <Route path="/eventos" element={<Eventos />} />
+                <Route path="/graduacao" element={<Graduacao />} />
+                <Route path="/comunicacao" element={<Comunicacao />} />
+                <Route path="/mensagens" element={<Comunicacao />} />
+                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/perfil" element={<Perfil />} />
+                <Route path="/cts" element={<CTs />} />
+                <Route path="/feature-flags" element={<FeatureFlags />} />
+                <Route path="/caixa" element={<CaixaDia />} />
+                <Route path="/frequencia" element={<Relatorios />} />
+                <Route path="/extrato" element={<Financeiro />} />
                 <Route path="/loja" element={<Cantina />} />
                 <Route path="/lancamentos" element={<Financeiro />} />
-                <Route path="/caixa" element={<Financeiro />} />
-                <Route path="/cts" element={<Dashboard />} />
-                <Route path="/feature-flags" element={<Dashboard />} />
-                <Route path="/auditoria" element={<Dashboard />} />
+                <Route path="/auditoria" element={<Relatorios />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

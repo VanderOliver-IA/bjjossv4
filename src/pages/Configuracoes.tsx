@@ -1,18 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, ModulePermissions, AppRole } from '@/contexts/AuthContext';
 import { Sun, Moon, Shield, Building2, Bell, Users } from 'lucide-react';
-import { defaultRolePermissions } from '@/data/mockData';
-import { ModulePermissions } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+type RolePermissions = Record<'professor' | 'atendente' | 'aluno', ModulePermissions>;
+
+const defaultRolePermissions: RolePermissions = {
+  professor: { alunos: true, turmas: true, presenca: true, crm: false, financeiro: false, cantina: false, eventos: true, graduacao: true, comunicacao: true, relatorios: false },
+  atendente: { alunos: true, turmas: false, presenca: false, crm: true, financeiro: true, cantina: true, eventos: false, graduacao: false, comunicacao: true, relatorios: false },
+  aluno: { alunos: false, turmas: false, presenca: false, crm: false, financeiro: false, cantina: true, eventos: true, graduacao: false, comunicacao: true, relatorios: false },
+};
 
 const Configuracoes = () => {
   const { theme, toggleTheme } = useTheme();
-  const { user, rolePermissions, updateRolePermissions } = useAuth();
-  const [permissions, setPermissions] = useState(rolePermissions);
+  const { role, profile } = useAuth();
+  const { toast } = useToast();
+  const [permissions, setPermissions] = useState<RolePermissions>(defaultRolePermissions);
+  const [ctData, setCtData] = useState<any>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!profile?.ct_id) return;
+
+      // Load CT data
+      const { data: ct } = await supabase
+        .from('cts')
+        .select('*')
+        .eq('id', profile.ct_id)
+        .single();
+
+      if (ct) setCtData(ct);
+
+      // Load role permissions
+      const { data: rolePerms } = await supabase
+        .from('role_permissions')
+        .select('role, modules')
+        .eq('ct_id', profile.ct_id);
+
+      if (rolePerms) {
+        const perms: RolePermissions = { ...defaultRolePermissions };
+        rolePerms.forEach((rp: any) => {
+          if (rp.role in perms) {
+            perms[rp.role as keyof RolePermissions] = rp.modules as ModulePermissions;
+          }
+        });
+        setPermissions(perms);
+      }
+    };
+
+    loadData();
+  }, [profile?.ct_id]);
 
   const modules: { key: keyof ModulePermissions; label: string }[] = [
     { key: 'alunos', label: 'Alunos' },
@@ -27,16 +69,58 @@ const Configuracoes = () => {
     { key: 'relatorios', label: 'Relatórios' },
   ];
 
-  const handlePermissionChange = (role: 'professor' | 'atendente' | 'aluno', module: keyof ModulePermissions, value: boolean) => {
+  const handlePermissionChange = async (roleKey: 'professor' | 'atendente' | 'aluno', module: keyof ModulePermissions, value: boolean) => {
     const newPermissions = {
       ...permissions,
-      [role]: {
-        ...permissions[role],
+      [roleKey]: {
+        ...permissions[roleKey],
         [module]: value,
       },
     };
     setPermissions(newPermissions);
-    updateRolePermissions(role, newPermissions[role]);
+
+    if (!profile?.ct_id) return;
+
+    const modulesJson = JSON.parse(JSON.stringify(newPermissions[roleKey]));
+
+    // Check if permission exists
+    const { data: existing } = await supabase
+      .from('role_permissions')
+      .select('id')
+      .eq('ct_id', profile.ct_id)
+      .eq('role', roleKey)
+      .single();
+
+    if (existing) {
+      const { error } = await supabase
+        .from('role_permissions')
+        .update({ modules: modulesJson })
+        .eq('id', existing.id);
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao salvar permissões',
+          description: error.message,
+        });
+      }
+    } else {
+      const { error } = await supabase
+        .from('role_permissions')
+        .insert([{
+          ct_id: profile.ct_id,
+          role: roleKey,
+          modules: modulesJson,
+        }]);
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao salvar permissões',
+          description: error.message,
+        });
+      }
+    }
   };
 
   return (
@@ -66,7 +150,7 @@ const Configuracoes = () => {
       </Card>
 
       {/* Role Permissions (Admin CT only) */}
-      {user?.role === 'admin_ct' && (
+      {role === 'admin_ct' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -76,21 +160,21 @@ const Configuracoes = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {(['professor', 'atendente', 'aluno'] as const).map(role => (
-                <div key={role} className="space-y-4">
+              {(['professor', 'atendente', 'aluno'] as const).map(roleKey => (
+                <div key={roleKey} className="space-y-4">
                   <h4 className="font-medium capitalize flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    {role === 'aluno' ? 'Aluno' : role.charAt(0).toUpperCase() + role.slice(1)}
+                    {roleKey === 'aluno' ? 'Aluno' : roleKey.charAt(0).toUpperCase() + roleKey.slice(1)}
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {modules.map(module => (
                       <div key={module.key} className="flex items-center space-x-2">
                         <Switch
-                          id={`${role}-${module.key}`}
-                          checked={permissions[role][module.key]}
-                          onCheckedChange={(value) => handlePermissionChange(role, module.key, value)}
+                          id={`${roleKey}-${module.key}`}
+                          checked={permissions[roleKey][module.key]}
+                          onCheckedChange={(value) => handlePermissionChange(roleKey, module.key, value)}
                         />
-                        <Label htmlFor={`${role}-${module.key}`} className="text-sm">
+                        <Label htmlFor={`${roleKey}-${module.key}`} className="text-sm">
                           {module.label}
                         </Label>
                       </div>
@@ -115,19 +199,19 @@ const Configuracoes = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">Nome</p>
-              <p className="font-medium">Gracie Barra Centro</p>
+              <p className="font-medium">{ctData?.name || 'Carregando...'}</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">CNPJ</p>
-              <p className="font-medium">12.345.678/0001-00</p>
+              <p className="font-medium">{ctData?.cnpj || '-'}</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">Endereço</p>
-              <p className="font-medium">Rua Principal, 123 - Centro</p>
+              <p className="font-medium">{ctData?.address || '-'}</p>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">Telefone</p>
-              <p className="font-medium">(11) 3333-0001</p>
+              <p className="font-medium">{ctData?.phone || '-'}</p>
             </div>
           </div>
         </CardContent>

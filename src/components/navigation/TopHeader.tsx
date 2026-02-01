@@ -10,20 +10,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Moon, Sun, LogOut, User, Bell, Menu } from 'lucide-react';
+import { Moon, Sun, LogOut, User, Bell } from 'lucide-react';
 import logo from '@/assets/logo.png';
 
 const TopHeader = () => {
-  const { user, logout } = useAuth();
+  const { profile, role, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
 
-  if (!user) return null;
+  if (!profile) return null;
 
   const roleLabels: Record<string, string> = {
     super_admin: 'Super Admin',
@@ -75,16 +75,16 @@ const TopHeader = () => {
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{roleLabels[user.role]}</p>
+                  <p className="text-sm font-medium">{profile.name}</p>
+                  <p className="text-xs text-muted-foreground">{role ? roleLabels[role] : ''}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div>
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="font-medium">{profile.name}</p>
+                  <p className="text-xs text-muted-foreground">{profile.email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

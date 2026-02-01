@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import logo from '@/assets/logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [activeTab, setActiveTab] = useState('login');
+  const { login, signUp, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -25,24 +34,34 @@ const Login = () => {
     if (success) {
       navigate('/dashboard');
     } else {
-      setError('Credenciais inválidas');
+      setError('Credenciais inválidas ou email não verificado');
     }
     
     setLoading(false);
   };
 
-  const testCredentials = [
-    { role: 'Super Admin', email: 'superadmin@bjjoss.com' },
-    { role: 'Admin CT', email: 'admin@academia.com' },
-    { role: 'Professor', email: 'professor@academia.com' },
-    { role: 'Atendente', email: 'atendente@academia.com' },
-    { role: 'Aluno', email: 'aluno@email.com' },
-  ];
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  const fillCredentials = (email: string) => {
-    setEmail(email);
-    setPassword('test123');
+    const success = await signUp(email, password, name);
+    
+    if (success) {
+      setActiveTab('login');
+      setError('');
+    }
+    
+    setLoading(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -53,71 +72,107 @@ const Login = () => {
           <p className="text-muted-foreground text-sm">Organização de Centro de Treinamento</p>
         </div>
 
-        {/* Login Card */}
+        {/* Login/Signup Card */}
         <Card className="border-border">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Entrar</CardTitle>
-            <CardDescription className="text-center">
-              Digite suas credenciais para acessar o sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <CardHeader className="space-y-1 pb-2">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Entrar</TabsTrigger>
+                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent>
+              <TabsContent value="login" className="mt-0">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              {error && (
-                <div className="text-destructive text-sm text-center">{error}</div>
-              )}
+                  {error && (
+                    <div className="text-destructive text-sm text-center">{error}</div>
+                  )}
 
-              <Button
-                type="submit"
-                className="w-full btn-presence text-white font-semibold"
-                disabled={loading}
-              >
-                {loading ? 'Entrando...' : 'Entrar'}
-              </Button>
-            </form>
-
-            {/* Test Credentials */}
-            <div className="mt-6 pt-6 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center mb-3">
-                Usuários de teste (senha: test123)
-              </p>
-              <div className="grid gap-2">
-                {testCredentials.map((cred) => (
-                  <button
-                    key={cred.email}
-                    onClick={() => fillCredentials(cred.email)}
-                    className="text-xs text-left px-3 py-2 rounded-md bg-muted hover:bg-muted/80 transition-colors"
+                  <Button
+                    type="submit"
+                    className="w-full btn-presence text-white font-semibold"
+                    disabled={loading}
                   >
-                    <span className="font-medium text-foreground">{cred.role}:</span>{' '}
-                    <span className="text-muted-foreground">{cred.email}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
+                    {loading ? 'Entrando...' : 'Entrar'}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="signup" className="mt-0">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name">Nome Completo</Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="Seu nome"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Senha</Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="text-destructive text-sm text-center">{error}</div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    className="w-full btn-presence text-white font-semibold"
+                    disabled={loading}
+                  >
+                    {loading ? 'Criando conta...' : 'Criar Conta'}
+                  </Button>
+                </form>
+              </TabsContent>
+            </CardContent>
+          </Tabs>
         </Card>
 
         {/* Footer */}
