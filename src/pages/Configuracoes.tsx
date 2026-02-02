@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth, ModulePermissions, AppRole } from '@/contexts/AuthContext';
-import { Sun, Moon, Shield, Building2, Bell, Users } from 'lucide-react';
+import { Sun, Moon, Shield, Building2, Bell, Users, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { getAllNavItemsForRole, getPrimaryActionItem, DASHBOARD_ITEM } from '@/config/bottomNav';
+import { useBottomNavConfig } from '@/hooks/useBottomNavConfig';
 
 type RolePermissions = Record<'professor' | 'atendente' | 'aluno', ModulePermissions>;
 
@@ -18,10 +22,23 @@ const defaultRolePermissions: RolePermissions = {
 
 const Configuracoes = () => {
   const { theme, toggleTheme } = useTheme();
-  const { role, profile } = useAuth();
+  const { role, profile, user, hasModuleAccess } = useAuth();
   const { toast } = useToast();
   const [permissions, setPermissions] = useState<RolePermissions>(defaultRolePermissions);
   const [ctData, setCtData] = useState<any>(null);
+
+  const navItemsForRole = useMemo(() => getAllNavItemsForRole(role), [role]);
+  const allowedNavOptions = useMemo(() => {
+    return navItemsForRole
+      .filter((item) => {
+        if (!item.module) return true;
+        return hasModuleAccess(item.module);
+      })
+      .filter((item) => item.path !== DASHBOARD_ITEM.path)
+      .filter((item) => item.path !== getPrimaryActionItem(role).path);
+  }, [navItemsForRole, hasModuleAccess, role]);
+
+  const { config, update, reset, swap } = useBottomNavConfig({ userId: user?.id, role });
 
   useEffect(() => {
     const loadData = async () => {
@@ -145,6 +162,72 @@ const Configuracoes = () => {
               <p className="text-sm text-muted-foreground">Alterne entre tema claro e escuro</p>
             </div>
             <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bottom navigation config */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Navigation className="h-5 w-5" />
+            Menu inferior
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Defina os 2 atalhos rápidos do menu inferior. O ícone central é a ação principal do seu perfil.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Atalho (esquerda)</Label>
+              <Select
+                value={config.leftPath ?? "none"}
+                onValueChange={(value) => update({ leftPath: value === "none" ? null : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {allowedNavOptions.map((opt) => (
+                    <SelectItem key={`left-${opt.path}`} value={opt.path}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Atalho (direita)</Label>
+              <Select
+                value={config.rightPath ?? "none"}
+                onValueChange={(value) => update({ rightPath: value === "none" ? null : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {allowedNavOptions.map((opt) => (
+                    <SelectItem key={`right-${opt.path}`} value={opt.path}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={swap}>
+              Inverter atalhos
+            </Button>
+            <Button type="button" variant="secondary" onClick={reset}>
+              Restaurar padrão
+            </Button>
           </div>
         </CardContent>
       </Card>
