@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ClickableCard } from '@/components/ui/clickable-card';
 import { Users, Calendar, DollarSign, TrendingUp, AlertTriangle, UserCheck, Clock, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import PageFallback from '@/components/ui/page-fallback';
 
 interface AttendanceRecord {
   id: string;
@@ -29,6 +31,7 @@ interface Transaction {
 const AdminCTDashboard = () => {
   const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     activeStudents: 0,
     totalStudents: 0,
@@ -166,8 +169,9 @@ const AdminCTDashboard = () => {
           activeClasses: classesCount || 0
         });
 
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Erro ao carregar dados do dashboard');
       } finally {
         setIsLoading(false);
       }
@@ -192,6 +196,10 @@ const AdminCTDashboard = () => {
     );
   }
 
+  if (error) {
+    return <PageFallback type="error" title={error} onRetry={() => window.location.reload()} />;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -199,9 +207,9 @@ const AdminCTDashboard = () => {
         <p className="text-muted-foreground">{ctName} - Visão geral</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - All Clickable */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <ClickableCard to="/presenca">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Presença Hoje</CardTitle>
             <UserCheck className="h-4 w-4 text-primary" />
@@ -210,9 +218,9 @@ const AdminCTDashboard = () => {
             <div className="text-2xl font-bold">{stats.todayAttendance}</div>
             <p className="text-xs text-muted-foreground">alunos treinando</p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/alunos">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Alunos Ativos</CardTitle>
             <Users className="h-4 w-4 text-secondary" />
@@ -223,9 +231,9 @@ const AdminCTDashboard = () => {
               de {stats.totalStudents} matriculados
             </p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/financeiro">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Inadimplência</CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -234,9 +242,9 @@ const AdminCTDashboard = () => {
             <div className="text-2xl font-bold text-destructive">{stats.defaulters}</div>
             <p className="text-xs text-muted-foreground">pagamentos atrasados</p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/relatorios">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Frequência Média</CardTitle>
             <TrendingUp className="h-4 w-4 text-success" />
@@ -245,12 +253,12 @@ const AdminCTDashboard = () => {
             <div className="text-2xl font-bold">{stats.averageAttendance}%</div>
             <p className="text-xs text-muted-foreground">nos últimos 30 dias</p>
           </CardContent>
-        </Card>
+        </ClickableCard>
       </div>
 
-      {/* Secondary Stats */}
+      {/* Secondary Stats - All Clickable */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-primary/5 border-primary/20">
+        <ClickableCard to="/crm" className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -262,9 +270,9 @@ const AdminCTDashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card className="bg-success/5 border-success/20">
+        <ClickableCard to="/financeiro" className="bg-success/5 border-success/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-success/10">
@@ -276,9 +284,9 @@ const AdminCTDashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card className="bg-warning/5 border-warning/20">
+        <ClickableCard to="/financeiro" className="bg-warning/5 border-warning/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-warning/10">
@@ -290,9 +298,9 @@ const AdminCTDashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card className="bg-secondary/5 border-secondary/20">
+        <ClickableCard to="/turmas" className="bg-secondary/5 border-secondary/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-secondary/10">
@@ -304,12 +312,12 @@ const AdminCTDashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
       </div>
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <ClickableCard to="/presenca">
           <CardHeader>
             <CardTitle className="text-lg">Últimas Presenças</CardTitle>
           </CardHeader>
@@ -331,9 +339,9 @@ const AdminCTDashboard = () => {
               )}
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/financeiro">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -358,7 +366,7 @@ const AdminCTDashboard = () => {
               )}
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
       </div>
     </div>
   );
