@@ -1,4 +1,4 @@
-import { useAuth } from '@/contexts/DevAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard';
 import AdminCTDashboard from '@/components/dashboards/AdminCTDashboard';
 import ProfessorDashboard from '@/components/dashboards/ProfessorDashboard';

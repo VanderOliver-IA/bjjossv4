@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth, ModulePermissions, AppRole } from '@/contexts/DevAuthContext';
+import { useAuth, ModulePermissions, AppRole } from '@/contexts/AuthContext';
 import { Sun, Moon, Shield, Building2, Bell, Users, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ const defaultRolePermissions: RolePermissions = {
 
 const Configuracoes = () => {
   const { theme, toggleTheme } = useTheme();
-  const { role, profile, hasModuleAccess } = useAuth();
+  const { role, profile, user, hasModuleAccess } = useAuth();
   const { toast } = useToast();
   const [permissions, setPermissions] = useState<RolePermissions>(defaultRolePermissions);
   const [ctData, setCtData] = useState<any>(null);
@@ -38,7 +38,7 @@ const Configuracoes = () => {
       .filter((item) => item.path !== getPrimaryActionItem(role).path);
   }, [navItemsForRole, hasModuleAccess, role]);
 
-  const { config, update, reset, swap } = useBottomNavConfig({ userId: profile?.id, role });
+  const { config, update, reset, swap } = useBottomNavConfig({ userId: user?.id, role });
 
   useEffect(() => {
     const loadData = async () => {

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Settings2, GripVertical } from 'lucide-react';
-import { useAuth } from '@/contexts/DevAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 interface DashboardItem {
