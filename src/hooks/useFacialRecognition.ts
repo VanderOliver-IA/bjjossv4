@@ -9,12 +9,35 @@ interface FaceComparisonResult {
   matched: boolean;
 }
 
+export interface DetectedFaceBox {
+  /** Normalized 0..1 */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DetectedFaceMatch {
+  student_id: string;
+  student_name?: string;
+  confidence: number;
+  matched: boolean;
+}
+
+export interface DetectedFaceResult {
+  face_id: string;
+  box: DetectedFaceBox;
+  match: DetectedFaceMatch | null;
+}
+
 interface RecognitionResponse {
   success: boolean;
   recognized: boolean;
   results: FaceComparisonResult[];
   unrecognized_count: number;
   message: string;
+  detected_faces?: DetectedFaceResult[];
+  analysis_notes?: string;
 }
 
 export function useFacialRecognition() {
@@ -26,6 +49,15 @@ export function useFacialRecognition() {
     imageBase64: string,
     ctId: string
   ): Promise<RecognitionResponse | null> => {
+    if (!imageBase64 || imageBase64.length < 1000) {
+      toast({
+        variant: 'destructive',
+        title: 'Envie ou tire uma foto',
+        description: 'A análise só pode começar após uma imagem real ser enviada ou capturada.',
+      });
+      return null;
+    }
+
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('facial-recognition', {
@@ -105,7 +137,7 @@ export function useFacialRecognition() {
 
   const recordAttendance = useCallback(async (
     ctId: string,
-    classId: string,
+    classId: string | undefined,
     recognizedStudents: FaceComparisonResult[],
     visitors: number = 0,
     experimental: number = 0,
@@ -117,7 +149,7 @@ export function useFacialRecognition() {
         body: {
           action: 'record_attendance',
           ct_id: ctId,
-          class_id: classId,
+          class_id: classId || null,
           recognized_students: recognizedStudents.filter(r => r.matched),
           visitors,
           experimental,
