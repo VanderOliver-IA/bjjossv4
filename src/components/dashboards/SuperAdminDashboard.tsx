@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ClickableCard } from '@/components/ui/clickable-card';
 import { Building2, Users, DollarSign, Flag, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import PageFallback from '@/components/ui/page-fallback';
 
 interface CTData {
   id: string;
@@ -13,6 +15,7 @@ interface CTData {
 
 const SuperAdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeCTs, setActiveCTs] = useState(0);
   const [totalCTs, setTotalCTs] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
@@ -70,8 +73,9 @@ const SuperAdminDashboard = () => {
           setActiveFlags(flagsData.filter(f => f.enabled).length);
         }
 
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Erro ao carregar dados do dashboard');
       } finally {
         setIsLoading(false);
       }
@@ -96,6 +100,10 @@ const SuperAdminDashboard = () => {
     );
   }
 
+  if (error) {
+    return <PageFallback type="error" title={error} onRetry={() => window.location.reload()} />;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -103,9 +111,9 @@ const SuperAdminDashboard = () => {
         <p className="text-muted-foreground">Visão geral do sistema BJJ OSS</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - All Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <ClickableCard to="/cts">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">CTs Ativos</CardTitle>
             <Building2 className="h-4 w-4 text-primary" />
@@ -116,9 +124,9 @@ const SuperAdminDashboard = () => {
               {totalCTs} total registrados
             </p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/alunos">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Alunos</CardTitle>
             <Users className="h-4 w-4 text-secondary" />
@@ -129,12 +137,12 @@ const SuperAdminDashboard = () => {
               Alunos cadastrados
             </p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/financeiro">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Receita Mensal</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-500" />
+            <DollarSign className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -144,9 +152,9 @@ const SuperAdminDashboard = () => {
               Este mês
             </p>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/feature-flags">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Feature Flags</CardTitle>
             <Flag className="h-4 w-4 text-accent" />
@@ -157,12 +165,12 @@ const SuperAdminDashboard = () => {
               flags ativas
             </p>
           </CardContent>
-        </Card>
+        </ClickableCard>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <ClickableCard to="/cts">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -171,7 +179,7 @@ const SuperAdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {cts.map(ct => (
+              {cts.length > 0 ? cts.map(ct => (
                 <div key={ct.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{ct.name}</p>
@@ -180,19 +188,21 @@ const SuperAdminDashboard = () => {
                   <div className="text-right">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       ct.subscription_status === 'ativo' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        ? 'bg-success/10 text-success'
+                        : 'bg-warning/10 text-warning'
                     }`}>
                       {ct.subscription_status}
                     </span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="text-muted-foreground text-center py-4">Nenhum CT cadastrado</p>
+              )}
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
 
-        <Card>
+        <ClickableCard to="/relatorios">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
@@ -201,15 +211,15 @@ const SuperAdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                <Building2 className="h-5 w-5 text-green-500 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-success/10 border border-success/20">
+                <Building2 className="h-5 w-5 text-success mt-0.5" />
                 <div>
                   <p className="font-medium text-sm">{activeCTs} CTs ativos</p>
                   <p className="text-xs text-muted-foreground">Sistema funcionando normalmente</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <Flag className="h-5 w-5 text-blue-500 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <Flag className="h-5 w-5 text-primary mt-0.5" />
                 <div>
                   <p className="font-medium text-sm">{activeFlags} features ativas</p>
                   <p className="text-xs text-muted-foreground">De {totalFlags} funcionalidades disponíveis</p>
@@ -217,7 +227,7 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </ClickableCard>
       </div>
     </div>
   );

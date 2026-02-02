@@ -26,16 +26,18 @@ interface ReportChartProps {
   className?: string;
 }
 
-const COLORS = [
-  'hsl(var(--bjj-azul))',
-  'hsl(var(--bjj-roxo))',
-  'hsl(var(--bjj-marrom))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+// BJJ color palette - always use at least 2+ colors (never mono)
+const BJJ_COLORS = [
+  'hsl(217, 91%, 55%)',   // Azul
+  'hsl(271, 76%, 60%)',   // Roxo
+  'hsl(30, 59%, 45%)',    // Marrom
+  'hsl(0, 0%, 95%)',      // Branco (with dark text fallback)
+  'hsl(142, 76%, 42%)',   // Success green
+  'hsl(38, 92%, 55%)',    // Warning yellow
 ];
 
 const chartTypeIcons = {
-  pie: PieChart,
+  pie: ChartPie,
   bar: BarChart3,
   line: LineChartIcon,
 };
@@ -48,6 +50,12 @@ const chartTypeLabels = {
 
 const ReportChart = ({ title, data, defaultType = 'bar', height = 300, className = '' }: ReportChartProps) => {
   const [chartType, setChartType] = useState<ChartType>(defaultType);
+
+  // Ensure we use at least 2 colors (never mono)
+  const getColor = (index: number, entry?: ChartData) => {
+    if (entry?.color) return entry.color;
+    return BJJ_COLORS[index % BJJ_COLORS.length];
+  };
 
   const renderChart = () => {
     switch (chartType) {
@@ -66,7 +74,7 @@ const ReportChart = ({ title, data, defaultType = 'bar', height = 300, className
                 label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
               >
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={getColor(index, entry)} />
                 ))}
               </Pie>
               <Tooltip 
@@ -74,9 +82,14 @@ const ReportChart = ({ title, data, defaultType = 'bar', height = 300, className
                   backgroundColor: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--card-foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
-              <Legend />
+              <Legend 
+                wrapperStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
+              />
             </PieChart>
           </ResponsiveContainer>
         );
@@ -89,18 +102,28 @@ const ReportChart = ({ title, data, defaultType = 'bar', height = 300, className
                 dataKey="name" 
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--card-foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              <Legend 
+                formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
+              />
+              <Bar dataKey="value" name="Valor" radius={[4, 4, 0, 0]}>
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={getColor(index, entry)} />
                 ))}
               </Bar>
             </BarChart>
@@ -115,21 +138,33 @@ const ReportChart = ({ title, data, defaultType = 'bar', height = 300, className
                 dataKey="name" 
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+              <YAxis 
+                stroke="hsl(var(--muted-foreground))" 
+                fontSize={12}
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--card-foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+              />
+              <Legend 
+                formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
               />
               <Line 
                 type="monotone" 
                 dataKey="value" 
-                stroke="hsl(var(--bjj-azul))" 
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--bjj-azul))' }}
+                name="Valor"
+                stroke="hsl(217, 91%, 55%)" 
+                strokeWidth={3}
+                dot={{ fill: 'hsl(271, 76%, 60%)', strokeWidth: 2, r: 5 }}
+                activeDot={{ r: 7, fill: 'hsl(30, 59%, 45%)' }}
               />
             </LineChart>
           </ResponsiveContainer>
