@@ -2,10 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { DevAuthProvider } from "@/contexts/DevAuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Alunos from "./pages/Alunos";
 import Turmas from "./pages/Turmas";
@@ -22,7 +21,7 @@ import Perfil from "./pages/Perfil";
 import CTs from "./pages/CTs";
 import FeatureFlags from "./pages/FeatureFlags";
 import CaixaDia from "./pages/CaixaDia";
-import MainLayout from "./components/layouts/MainLayout";
+import DevMainLayout from "./components/layouts/DevMainLayout";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,14 +29,15 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <AuthProvider>
+      <DevAuthProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Login />} />
-              <Route element={<MainLayout />}>
+              {/* Redirect root to dashboard in dev mode */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route element={<DevMainLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/alunos" element={<Alunos />} />
                 <Route path="/turmas" element={<Turmas />} />
@@ -65,7 +65,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
+      </DevAuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingBag, DollarSign, Users, TrendingUp, Clock, Receipt } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/DevAuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Product {
