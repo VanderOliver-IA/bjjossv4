@@ -12,12 +12,74 @@ interface FaceComparisonResult {
   matched: boolean;
 }
 
+interface DetectedFaceBox {
+  /** Normalized 0..1 */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface DetectedFaceMatch {
+  student_id: string;
+  confidence: number;
+  matched?: boolean;
+}
+
+interface DetectedFaceResult {
+  face_id: string;
+  box: DetectedFaceBox;
+  match: DetectedFaceMatch | null;
+}
+
 interface RecognitionResponse {
   success: boolean;
   recognized: boolean;
   results: FaceComparisonResult[];
   unrecognized_count: number;
   message: string;
+  detected_faces?: DetectedFaceResult[];
+  analysis_notes?: string;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  return Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+}
+
+function clamp01(n: unknown): number {
+  const v = typeof n === 'number' ? n : Number(n);
+  if (Number.isNaN(v)) return 0;
+  return Math.max(0, Math.min(1, v));
+}
+
+function extractPhotosPathFromUrl(url: string): string | null {
+  // Typical public URL: .../storage/v1/object/public/photos/<path>
+  const m = url.match(/\/storage\/v1\/object\/(?:public\/)?photos\/(.+)$/);
+  return m?.[1] ?? null;
+}
+
+async function toSignedPhotoUrl(
+  // Use `any` here to avoid edge-runtime typing mismatches across supabase-js builds.
+  // (We only need `storage.from(...).createSignedUrl(...)` at runtime.)
+  supabaseAdmin: any,
+  url: string | null,
+): Promise<string | null> {
+  if (!url) return null;
+  // If already a signed URL or external URL, keep it.
+  if (url.includes('/storage/v1/object/sign/photos/')) return url;
+  const path = extractPhotosPathFromUrl(url);
+  if (!path) return url;
+
+  const { data, error } = await supabaseAdmin.storage
+    .from('photos')
+    .createSignedUrl(path, 60 * 10);
+
+  if (error) {
+    console.warn('Could not create signed URL, falling back to stored URL:', error.message);
+    return url;
+  }
+  return data.signedUrl;
 }
 
 Deno.serve(async (req) => {
@@ -110,6 +172,23 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Hard validation: do not allow analysis with empty/invalid image
+      let imageBytes: Uint8Array;
+      try {
+        imageBytes = base64ToBytes(String(image_base64));
+      } catch {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid image_base64" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+      if (imageBytes.length < 5_000) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Image too small or empty" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+
       console.log(`Fetching students for CT: ${ct_id}`);
 
       // Fetch all students from the CT with their photos
@@ -117,7 +196,7 @@ Deno.serve(async (req) => {
         .from("students")
         .select("id, name, photo_front, photo_left, photo_right, belt, stripes")
         .eq("ct_id", ct_id)
-        .not("photo_front", "is", null);
+        .or("photo_front.not.is.null,photo_left.not.is.null,photo_right.not.is.null");
 
       if (studentsError) {
         console.error("Students fetch error:", studentsError);
@@ -150,12 +229,29 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Build the prompt for vision analysis
-      const studentsList = students.map(s => 
-        `- ${s.name} (ID: ${s.id}, Belt: ${s.belt}): Profile photo URL: ${s.photo_front}`
-      ).join('\n');
+      // Ensure the AI can actually fetch student photos (signed URLs)
+      const studentsWithSigned = await Promise.all(
+        students.map(async (s) => {
+          const front = await toSignedPhotoUrl(supabaseAdmin, s.photo_front);
+          const left = await toSignedPhotoUrl(supabaseAdmin, s.photo_left);
+          const right = await toSignedPhotoUrl(supabaseAdmin, s.photo_right);
+          return { ...s, front, left, right };
+        })
+      );
 
-      const prompt = `You are an AI facial recognition assistant for a Brazilian Jiu-Jitsu academy attendance system.
+      const studentsById = new Map<string, { id: string; name: string; belt: string | null }>();
+      for (const s of studentsWithSigned) {
+        studentsById.set(s.id, { id: s.id, name: s.name, belt: s.belt ?? null });
+      }
+
+      const studentsList = studentsWithSigned
+        .map(
+          (s) =>
+            `- ${s.name} (ID: ${s.id}, Belt: ${s.belt ?? ""}): front=${s.front ?? ""} left=${s.left ?? ""} right=${s.right ?? ""}`
+        )
+        .join("\n");
+
+       const prompt = `You are an AI facial recognition assistant for a Brazilian Jiu-Jitsu academy attendance system.
 
 Your task is to analyze the provided photo and identify which registered students appear in it by comparing faces.
 
@@ -163,26 +259,29 @@ REGISTERED STUDENTS WITH THEIR PROFILE PHOTOS:
 ${studentsList}
 
 INSTRUCTIONS:
-1. Look at the captured photo carefully to identify faces
-2. Compare each detected face with the profile photos of registered students (accessible via the URLs above)
-3. For each face you can identify, estimate a similarity/confidence score from 0-100
-4. A match should have confidence >= 70 to be considered positive
+ 1. Look at the captured photo carefully to identify faces.
+ 2. For each face, output a bounding box in normalized coordinates (0..1): x, y, width, height.
+ 3. Compare each detected face with the profile photos of registered students (accessible via the URLs above).
+ 4. Only return a match when you can actually compare faces. If you're not sure or can't access the URLs, set match=null.
+ 5. A match is considered positive when confidence >= 70.
+ 6. NEVER invent students or faces.
 
 IMPORTANT: Return your analysis as a valid JSON object with this exact structure:
 {
-  "detected_faces": <number of faces found in the photo>,
-  "matches": [
+  "detected_faces": [
     {
-      "student_id": "<exact UUID from the student list>",
-      "student_name": "<exact name from the student list>",
-      "confidence": <number 0-100>,
-      "matched": <true if confidence >= 70, false otherwise>
+      "face_id": "face_1",
+      "box": {"x": 0.1, "y": 0.2, "width": 0.2, "height": 0.25},
+      "match": {
+        "student_id": "<exact UUID from the student list>",
+        "confidence": 0
+      } | null
     }
   ],
   "analysis_notes": "<brief description of what you observed>"
 }
 
-Only include students you are reasonably confident about (confidence >= 60).
+Only include match objects when confidence >= 60; otherwise use null.
 Return ONLY the JSON object, no markdown formatting or additional text.`;
 
       console.log("Calling Lovable AI Gateway for facial recognition...");
@@ -240,7 +339,7 @@ Return ONLY the JSON object, no markdown formatting or additional text.`;
         console.log("AI response received:", content.substring(0, 500));
 
         // Parse AI response
-        let parsedResult;
+        let parsedResult: any;
         try {
           // Clean the response if it has markdown
           const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
@@ -248,18 +347,69 @@ Return ONLY the JSON object, no markdown formatting or additional text.`;
         } catch (parseError) {
           console.error("Failed to parse AI response:", content);
           console.error("Parse error:", parseError);
-          parsedResult = { detected_faces: 0, matches: [] };
+          parsedResult = { detected_faces: [] };
         }
 
-        const results: FaceComparisonResult[] = (parsedResult.matches || []).map((m: any) => ({
-          student_id: m.student_id,
-          student_name: m.student_name,
-          confidence: Math.round(m.confidence || 0),
-          matched: m.matched || (m.confidence && m.confidence >= 70),
-        }));
+        const rawFaces = Array.isArray(parsedResult.detected_faces) ? parsedResult.detected_faces : [];
 
-        const recognizedCount = results.filter(r => r.matched).length;
-        const unrecognizedCount = Math.max(0, (parsedResult.detected_faces || 0) - recognizedCount);
+        const detectedFaces: DetectedFaceResult[] = rawFaces
+          .map((f: any, idx: number) => {
+            const box = f?.box ?? {};
+            const x = clamp01(box.x);
+            const y = clamp01(box.y);
+            const width = clamp01(box.width);
+            const height = clamp01(box.height);
+
+            // Ignore invalid boxes
+            if (width <= 0 || height <= 0) return null;
+
+            const rawMatch = f?.match ?? null;
+            const studentId = rawMatch?.student_id ? String(rawMatch.student_id) : null;
+            const confidence = Math.round(Number(rawMatch?.confidence ?? 0));
+
+            const isValidStudent = studentId ? studentsById.has(studentId) : false;
+            const match: DetectedFaceMatch | null = isValidStudent
+              ? {
+                  student_id: studentId!,
+                  confidence,
+                  matched: confidence >= 70,
+                }
+              : null;
+
+            return {
+              face_id: typeof f?.face_id === 'string' ? f.face_id : `face_${idx + 1}`,
+              box: { x, y, width, height },
+              match,
+            };
+          })
+          .filter(Boolean) as DetectedFaceResult[];
+
+        // Aggregate legacy `results` from face matches (best per student)
+        const bestByStudent = new Map<string, FaceComparisonResult>();
+        for (const face of detectedFaces) {
+          const m = face.match;
+          if (!m) continue;
+
+          const student = studentsById.get(m.student_id);
+          if (!student) continue;
+
+          const candidate: FaceComparisonResult = {
+            student_id: m.student_id,
+            student_name: student.name,
+            confidence: Math.round(m.confidence || 0),
+            matched: !!m.matched,
+          };
+
+          const prev = bestByStudent.get(m.student_id);
+          if (!prev || candidate.confidence > prev.confidence) {
+            bestByStudent.set(m.student_id, candidate);
+          }
+        }
+        const results = Array.from(bestByStudent.values());
+
+        const faceRecognizedCount = detectedFaces.filter((f) => f.match?.matched).length;
+        const recognizedCount = results.filter((r) => r.matched).length;
+        const unrecognizedCount = Math.max(0, detectedFaces.length - faceRecognizedCount);
 
         console.log(`Recognition complete: ${recognizedCount} matched, ${unrecognizedCount} unrecognized`);
 
@@ -270,6 +420,7 @@ Return ONLY the JSON object, no markdown formatting or additional text.`;
             results,
             unrecognized_count: unrecognizedCount,
             message: `Recognized ${recognizedCount} student(s)`,
+            detected_faces: detectedFaces,
             analysis_notes: parsedResult.analysis_notes || "",
           } as RecognitionResponse),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }

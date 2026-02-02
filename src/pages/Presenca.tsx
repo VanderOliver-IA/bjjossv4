@@ -23,10 +23,11 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useFacialRecognition } from '@/hooks/useFacialRecognition';
+import { useFacialRecognition, type DetectedFaceBox, type DetectedFaceResult } from '@/hooks/useFacialRecognition';
 
 type PresenceStep = 'select' | 'capture' | 'processing' | 'results' | 'confirm';
 type CaptureMode = 'camera' | 'upload';
+type UnknownFaceDecision = 'recognized' | 'pending' | 'visitor' | 'experimental' | 'new_student' | 'professor' | 'ignore';
 
 interface TrainingClass {
   id: string;
@@ -45,6 +46,42 @@ interface RecognizedFace {
   photo_url?: string;
 }
 
+interface DetectedFaceUI {
+  face_id: string;
+  box: DetectedFaceBox;
+  thumbnail_url: string | null;
+  match: RecognizedFace | null;
+  decision: UnknownFaceDecision;
+}
+
+async function cropFaceFromDataUrl(dataUrl: string, box: DetectedFaceBox): Promise<string | null> {
+  try {
+    const img = new Image();
+    img.src = dataUrl;
+    await img.decode();
+
+    const sx = Math.max(0, Math.min(img.width, Math.round(box.x * img.width)));
+    const sy = Math.max(0, Math.min(img.height, Math.round(box.y * img.height)));
+    const sw = Math.max(1, Math.min(img.width - sx, Math.round(box.width * img.width)));
+    const sh = Math.max(1, Math.min(img.height - sy, Math.round(box.height * img.height)));
+
+    const canvas = document.createElement('canvas');
+    const size = 160;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch {
+    return null;
+  }
+}
+
 const Presenca = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
@@ -60,6 +97,7 @@ const Presenca = () => {
   const [processingStage, setProcessingStage] = useState('');
   const [recognizedFaces, setRecognizedFaces] = useState<RecognizedFace[]>([]);
   const [unrecognizedCount, setUnrecognizedCount] = useState(0);
+  const [detectedFaces, setDetectedFaces] = useState<DetectedFaceUI[]>([]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -121,6 +159,7 @@ const Presenca = () => {
         title: 'Erro ao acessar câmera',
         description: 'Verifique as permissões do navegador.',
       });
+      setIsCameraActive(false);
     }
   }, [toast]);
 
@@ -141,6 +180,15 @@ const Presenca = () => {
 
     if (!context) return null;
 
+    if (!video.videoWidth || !video.videoHeight) {
+      toast({
+        variant: 'destructive',
+        title: 'Câmera ainda não pronta',
+        description: 'Aguarde 1 segundo e tente capturar novamente.',
+      });
+      return null;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0);
@@ -151,7 +199,7 @@ const Presenca = () => {
     stopCamera();
     
     return base64;
-  }, [stopCamera]);
+  }, [stopCamera, toast]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -175,15 +223,25 @@ const Presenca = () => {
       return;
     }
 
+    if (!imageBase64 || imageBase64.length < 1000) {
+      toast({
+        variant: 'destructive',
+        title: 'Envie ou tire uma foto',
+        description: 'A análise só pode começar após uma imagem real ser enviada ou capturada.',
+      });
+      return;
+    }
+
     setStep('processing');
     setProcessingProgress(0);
 
-    // Simulate progress stages while waiting for AI
+    // UI stages (sem iniciar análise automaticamente; só entra aqui após captura/envio)
     const stages = [
-      { progress: 20, text: 'Preparando imagem...' },
+      { progress: 20, text: 'Otimizando imagem...' },
       { progress: 40, text: 'Enviando para análise...' },
       { progress: 60, text: 'Detectando rostos...' },
-      { progress: 80, text: 'Comparando com alunos cadastrados...' },
+      { progress: 75, text: 'Exibindo rostos detectados...' },
+      { progress: 90, text: 'Comparando com alunos cadastrados...' },
     ];
 
     let stageIndex = 0;
@@ -203,14 +261,15 @@ const Presenca = () => {
       setProcessingStage('Concluído!');
 
       if (response) {
-        // Fetch additional student info for display
-        const studentIds = response.results.map(r => r.student_id);
-        const { data: studentsInfo } = await supabase
-          .from('students')
-          .select('id, belt, photo_front')
-          .in('id', studentIds);
+        const studentIds = Array.from(new Set((response.results || []).map(r => r.student_id).filter(Boolean)));
+        const { data: studentsInfo } = studentIds.length
+          ? await supabase
+              .from('students')
+              .select('id, belt, photo_front')
+              .in('id', studentIds)
+          : { data: [] as any[] };
 
-        const enrichedResults = response.results.map(result => {
+        const enrichedResults: RecognizedFace[] = (response.results || []).map(result => {
           const studentInfo = studentsInfo?.find(s => s.id === result.student_id);
           return {
             ...result,
@@ -220,11 +279,48 @@ const Presenca = () => {
         });
 
         setRecognizedFaces(enrichedResults);
-        setUnrecognizedCount(response.unrecognized_count);
-        
-        setTimeout(() => {
-          setStep('results');
-        }, 500);
+
+        // Prefer per-face payload when available
+        if (capturedImage && Array.isArray(response.detected_faces) && response.detected_faces.length > 0) {
+          const faceUI: DetectedFaceUI[] = await Promise.all(
+            response.detected_faces.map(async (f: DetectedFaceResult) => {
+              const matchFromResults = f.match
+                ? enrichedResults.find(r => r.student_id === f.match?.student_id) || null
+                : null;
+
+              const thumbnail = await cropFaceFromDataUrl(capturedImage, f.box);
+
+              const match: RecognizedFace | null = matchFromResults
+                ? matchFromResults
+                : f.match
+                  ? {
+                      student_id: f.match.student_id,
+                      student_name: enrichedResults.find(r => r.student_id === f.match?.student_id)?.student_name || 'Possível match',
+                      confidence: Math.round(f.match.confidence || 0),
+                      matched: !!f.match.matched,
+                    }
+                  : null;
+
+              return {
+                face_id: f.face_id,
+                box: f.box,
+                thumbnail_url: thumbnail,
+                match,
+                decision: match?.matched ? 'recognized' : 'pending',
+              };
+            })
+          );
+
+          setDetectedFaces(faceUI);
+
+          const unrecognized = faceUI.filter(f => !f.match?.matched).length;
+          setUnrecognizedCount(unrecognized);
+        } else {
+          setDetectedFaces([]);
+          setUnrecognizedCount(response.unrecognized_count || 0);
+        }
+
+        setTimeout(() => setStep('results'), 300);
       } else {
         setStep('select');
         setCapturedImage(null);
@@ -259,13 +355,16 @@ const Presenca = () => {
     if (!ctId) return;
 
     const matchedStudents = recognizedFaces.filter(f => f.matched);
+
+    const visitors = detectedFaces.filter(f => f.decision === 'visitor').length;
+    const experimental = detectedFaces.filter(f => f.decision === 'experimental').length;
     
     const attendanceId = await recordAttendance(
       ctId,
-      selectedClass || undefined,
+      selectedClass && selectedClass !== 'none' ? selectedClass : undefined,
       matchedStudents,
-      unrecognizedCount, // visitors placeholder
-      0, // experimental
+      visitors,
+      experimental,
       capturedImage || undefined
     );
 
@@ -281,11 +380,20 @@ const Presenca = () => {
     setCapturedImage(null);
     setRecognizedFaces([]);
     setUnrecognizedCount(0);
+    setDetectedFaces([]);
     stopCamera();
   };
 
   const renderSelectStep = () => (
     <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">
+            Envie ou tire uma foto para iniciar a análise.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Class Selection */}
       <Card>
         <CardHeader>
@@ -309,42 +417,28 @@ const Presenca = () => {
       </Card>
 
       {/* Capture Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card 
-          className="cursor-pointer transition-all hover:border-primary hover:shadow-lg"
+      <div className="flex flex-col md:flex-row gap-3">
+        <Button
+          className="gap-2 justify-center"
           onClick={() => {
             setCaptureMode('camera');
             startCamera();
           }}
         >
-          <CardContent className="pt-6 text-center">
-            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Camera className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="font-semibold mb-2">Tirar Foto</h3>
-            <p className="text-sm text-muted-foreground">
-              Use a câmera para capturar uma foto da turma
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer transition-all hover:border-primary hover:shadow-lg"
+          <Camera className="h-4 w-4" />
+          Tirar foto
+        </Button>
+        <Button
+          variant="secondary"
+          className="gap-2 justify-center"
           onClick={() => {
             setCaptureMode('upload');
             fileInputRef.current?.click();
           }}
         >
-          <CardContent className="pt-6 text-center">
-            <div className="w-16 h-16 mx-auto rounded-full bg-secondary/10 flex items-center justify-center mb-4">
-              <Upload className="h-8 w-8 text-secondary-foreground" />
-            </div>
-            <h3 className="font-semibold mb-2">Enviar Foto</h3>
-            <p className="text-sm text-muted-foreground">
-              Faça upload de uma foto existente
-            </p>
-          </CardContent>
-        </Card>
+          <Upload className="h-4 w-4" />
+          Enviar foto
+        </Button>
       </div>
 
       {/* Hidden file input */}
@@ -360,7 +454,7 @@ const Presenca = () => {
       {isCameraActive && (
         <Card>
           <CardContent className="pt-6">
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
+            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden mb-4">
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover"
@@ -431,8 +525,48 @@ const Presenca = () => {
     const matchedFaces = recognizedFaces.filter(f => f.matched);
     const lowConfidenceFaces = recognizedFaces.filter(f => !f.matched);
 
+    const counts = {
+      detected: detectedFaces.length,
+      recognized: detectedFaces.filter(f => f.match?.matched).length,
+      pending: detectedFaces.filter(f => !f.match?.matched && f.decision === 'pending').length,
+      visitors: detectedFaces.filter(f => f.decision === 'visitor').length,
+      experimental: detectedFaces.filter(f => f.decision === 'experimental').length,
+      ignored: detectedFaces.filter(f => f.decision === 'ignore').length,
+    };
+
+    const canFinalize = counts.pending === 0;
+
     return (
       <div className="space-y-6">
+        {/* Summary */}
+        {detectedFaces.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-2xl font-bold">{counts.detected}</p>
+                  <p className="text-xs text-muted-foreground">Rostos detectados</p>
+                </div>
+                <div className="p-3 rounded-lg bg-success/10 border border-success/20">
+                  <p className="text-2xl font-bold text-success">{counts.recognized}</p>
+                  <p className="text-xs text-muted-foreground">Reconhecidos</p>
+                </div>
+                <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                  <p className="text-2xl font-bold text-warning">{counts.pending}</p>
+                  <p className="text-xs text-muted-foreground">Pendentes</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-2xl font-bold">{counts.visitors + counts.experimental}</p>
+                  <p className="text-xs text-muted-foreground">Classificados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Captured Image */}
         {capturedImage && (
           <Card>
@@ -451,12 +585,116 @@ const Presenca = () => {
           </Card>
         )}
 
-        {/* Recognized Faces */}
-        {matchedFaces.length > 0 && (
+        {/* Detected faces (per-face, never invented) */}
+        {detectedFaces.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <Users className="h-5 w-5" />
+                Rostos detectados ({detectedFaces.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {detectedFaces.map((face) => {
+                  const isRecognized = !!face.match?.matched;
+
+                  return (
+                    <div
+                      key={face.face_id}
+                      className={
+                        isRecognized
+                          ? 'rounded-lg border border-success/20 bg-success/5 p-3'
+                          : 'rounded-lg border border-warning/20 bg-warning/5 p-3'
+                      }
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-md overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                          {face.thumbnail_url ? (
+                            <img
+                              src={face.thumbnail_url}
+                              alt="Rosto detectado"
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Users className="h-6 w-6 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">
+                            {isRecognized ? face.match?.student_name : 'Não reconhecido'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {isRecognized
+                              ? `Confiança: ${face.match?.confidence ?? 0}%`
+                              : face.match
+                                ? `Possível match: ${face.match.student_name} (${face.match.confidence}%)`
+                                : 'Sem match sugerido'}
+                          </p>
+                          {isRecognized && face.match?.belt && (
+                            <p className="text-xs text-muted-foreground capitalize">Faixa: {face.match.belt}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isRecognized && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant={face.decision === 'visitor' ? 'default' : 'outline'}
+                            onClick={() =>
+                              setDetectedFaces((prev) =>
+                                prev.map((p) =>
+                                  p.face_id === face.face_id ? { ...p, decision: 'visitor' } : p
+                                )
+                              )
+                            }
+                          >
+                            Visitante
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={face.decision === 'experimental' ? 'default' : 'outline'}
+                            onClick={() =>
+                              setDetectedFaces((prev) =>
+                                prev.map((p) =>
+                                  p.face_id === face.face_id ? { ...p, decision: 'experimental' } : p
+                                )
+                              )
+                            }
+                          >
+                            Experimental
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setDetectedFaces((prev) =>
+                                prev.map((p) =>
+                                  p.face_id === face.face_id ? { ...p, decision: 'ignore' } : p
+                                )
+                              )
+                            }
+                          >
+                            Ignorar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recognized (legacy / quick view) */}
+        {matchedFaces.length > 0 && detectedFaces.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-success" />
                 Alunos Reconhecidos ({matchedFaces.length})
               </CardTitle>
             </CardHeader>
@@ -465,7 +703,7 @@ const Presenca = () => {
                 {matchedFaces.map((face, index) => (
                   <div 
                     key={face.student_id || index} 
-                    className="text-center p-3 rounded-lg bg-green-500/5 border border-green-500/20"
+                    className="text-center p-3 rounded-lg bg-success/5 border border-success/20"
                   >
                     {face.photo_url && (
                       <img 
@@ -478,7 +716,7 @@ const Presenca = () => {
                     {face.belt && (
                       <p className="text-xs text-muted-foreground capitalize">{face.belt}</p>
                     )}
-                    <Badge className="mt-2 bg-green-500/10 text-green-600 text-xs">
+                    <Badge className="mt-2 bg-success/10 text-success text-xs">
                       {face.confidence}% confiança
                     </Badge>
                   </div>
@@ -488,11 +726,11 @@ const Presenca = () => {
           </Card>
         )}
 
-        {/* Low Confidence Faces */}
-        {lowConfidenceFaces.length > 0 && (
+        {/* Low Confidence Faces (legacy) */}
+        {lowConfidenceFaces.length > 0 && detectedFaces.length === 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertCircle className="h-5 w-5" />
                 Baixa Confiança ({lowConfidenceFaces.length})
               </CardTitle>
@@ -502,10 +740,10 @@ const Presenca = () => {
                 {lowConfidenceFaces.map((face, index) => (
                   <div 
                     key={face.student_id || index} 
-                    className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20"
+                    className="p-3 rounded-lg bg-warning/5 border border-warning/20"
                   >
                     <p className="font-medium text-sm">{face.student_name}</p>
-                    <Badge variant="outline" className="mt-2 text-yellow-600 text-xs">
+                    <Badge variant="outline" className="mt-2 text-warning text-xs">
                       {face.confidence}% confiança
                     </Badge>
                   </div>
@@ -515,11 +753,11 @@ const Presenca = () => {
           </Card>
         )}
 
-        {/* Unknown Faces */}
-        {unrecognizedCount > 0 && (
+        {/* Unknown Faces (legacy) */}
+        {unrecognizedCount > 0 && detectedFaces.length === 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-600">
+              <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertCircle className="h-5 w-5" />
                 Rostos Não Identificados ({unrecognizedCount})
               </CardTitle>
@@ -541,10 +779,10 @@ const Presenca = () => {
         )}
 
         {/* No matches at all */}
-        {matchedFaces.length === 0 && lowConfidenceFaces.length === 0 && (
+        {matchedFaces.length === 0 && lowConfidenceFaces.length === 0 && detectedFaces.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+              <AlertCircle className="h-12 w-12 mx-auto text-warning mb-4" />
               <h3 className="font-semibold mb-2">Nenhum aluno reconhecido</h3>
               <p className="text-sm text-muted-foreground">
                 Não foi possível identificar nenhum aluno cadastrado na foto.
@@ -559,10 +797,10 @@ const Presenca = () => {
             <RotateCcw className="h-4 w-4 mr-2" />
             Nova Captura
           </Button>
-          {matchedFaces.length > 0 && (
+          {(matchedFaces.length > 0 || detectedFaces.length > 0) && (
             <Button 
               onClick={handleConfirmAttendance} 
-              disabled={isProcessing}
+              disabled={isProcessing || !canFinalize}
               className="gap-2"
             >
               {isProcessing ? (
@@ -570,22 +808,30 @@ const Presenca = () => {
               ) : (
                 <CheckCircle className="h-4 w-4" />
               )}
-              Confirmar Presenças ({matchedFaces.length})
+              Finalizar registro de presença
             </Button>
           )}
         </div>
+
+        {detectedFaces.length > 0 && !canFinalize && (
+          <p className="text-sm text-muted-foreground text-center">
+            Existem rostos pendentes. Marque cada rosto como Visitante, Experimental ou Ignorar.
+          </p>
+        )}
       </div>
     );
   };
 
   const renderConfirmStep = () => {
     const matchedCount = recognizedFaces.filter(f => f.matched).length;
+    const visitors = detectedFaces.filter(f => f.decision === 'visitor').length;
+    const experimental = detectedFaces.filter(f => f.decision === 'experimental').length;
 
     return (
       <Card className="max-w-md mx-auto">
         <CardContent className="pt-8 pb-8 text-center">
-          <div className="w-20 h-20 mx-auto rounded-full bg-green-500/10 flex items-center justify-center mb-6">
-            <CheckCircle className="h-10 w-10 text-green-500" />
+          <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center mb-6">
+            <CheckCircle className="h-10 w-10 text-success" />
           </div>
           <h3 className="text-xl font-semibold mb-2">Presença Registrada!</h3>
           <p className="text-muted-foreground mb-6">
@@ -594,15 +840,15 @@ const Presenca = () => {
           
           <div className="grid grid-cols-3 gap-4 mb-6 p-4 rounded-lg bg-muted/50">
             <div>
-              <p className="text-2xl font-bold text-green-500">{matchedCount}</p>
+              <p className="text-2xl font-bold text-success">{matchedCount}</p>
               <p className="text-xs text-muted-foreground">Presentes</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-yellow-500">{unrecognizedCount}</p>
-              <p className="text-xs text-muted-foreground">Visitantes</p>
+              <p className="text-2xl font-bold text-warning">{visitors + experimental}</p>
+              <p className="text-xs text-muted-foreground">Classificados</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">{matchedCount + unrecognizedCount}</p>
+              <p className="text-2xl font-bold">{matchedCount + visitors + experimental}</p>
               <p className="text-xs text-muted-foreground">Total</p>
             </div>
           </div>
