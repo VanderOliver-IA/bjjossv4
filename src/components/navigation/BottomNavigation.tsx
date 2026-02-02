@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useMemo } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/DevAuthContext";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 import {
@@ -20,10 +20,10 @@ import {
 } from "@/components/ui/sheet";
 
 const BottomNavigation = () => {
-  const { user, role, isLoading, hasModuleAccess } = useAuth();
+  const { profile, role, isLoading, hasModuleAccess } = useAuth();
   const location = useLocation();
 
-  const { config } = useBottomNavConfig({ userId: user?.id, role });
+  const { config } = useBottomNavConfig({ userId: profile?.id, role });
 
   const allItems = useMemo(() => getAllNavItemsForRole(role), [role]);
 
@@ -41,7 +41,7 @@ const BottomNavigation = () => {
     return DASHBOARD_ITEM;
   }, [role, hasModuleAccess]);
 
-  if (!user) return null;
+  if (!profile) return null;
 
   const resolveItemByPath = (path: string | null | undefined): AppNavItem | null => {
     if (!path) return null;

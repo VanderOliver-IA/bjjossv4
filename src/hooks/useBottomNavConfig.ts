@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { AppRole } from "@/contexts/AuthContext";
+import type { AppRole } from "@/contexts/DevAuthContext";
 import { getDefaultQuickAccess } from "@/config/bottomNav";
 
 export interface BottomNavConfig {
