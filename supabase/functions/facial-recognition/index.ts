@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface FaceComparisonResult {
@@ -37,12 +37,13 @@ Deno.serve(async (req) => {
       },
     });
 
-    const { image_base64, ct_id, class_id, action } = await req.json();
+    const body = await req.json();
+    const { image_base64, ct_id, class_id, action, student_id, photo_angle, recognized_students, visitors, experimental, photo_url } = body;
+
+    console.log(`Facial recognition action: ${action}, ct_id: ${ct_id}`);
 
     if (action === "register") {
       // Register a new face for a student
-      const { student_id, photo_angle } = await req.json();
-      
       if (!student_id || !image_base64 || !photo_angle) {
         return new Response(
           JSON.stringify({ success: false, error: "Missing required fields: student_id, image_base64, photo_angle" }),
@@ -62,6 +63,7 @@ Deno.serve(async (req) => {
         });
 
       if (uploadError) {
+        console.error("Upload error:", uploadError);
         return new Response(
           JSON.stringify({ success: false, error: `Upload failed: ${uploadError.message}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -81,12 +83,14 @@ Deno.serve(async (req) => {
         .eq("id", student_id);
 
       if (updateError) {
+        console.error("Update error:", updateError);
         return new Response(
           JSON.stringify({ success: false, error: `Update failed: ${updateError.message}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
 
+      console.log(`Photo registered for student ${student_id}`);
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -106,19 +110,24 @@ Deno.serve(async (req) => {
         );
       }
 
+      console.log(`Fetching students for CT: ${ct_id}`);
+
       // Fetch all students from the CT with their photos
       const { data: students, error: studentsError } = await supabaseAdmin
         .from("students")
-        .select("id, name, photo_front, photo_left, photo_right")
+        .select("id, name, photo_front, photo_left, photo_right, belt, stripes")
         .eq("ct_id", ct_id)
         .not("photo_front", "is", null);
 
       if (studentsError) {
+        console.error("Students fetch error:", studentsError);
         return new Response(
           JSON.stringify({ success: false, error: `Failed to fetch students: ${studentsError.message}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
+
+      console.log(`Found ${students?.length || 0} students with photos`);
 
       if (!students || students.length === 0) {
         return new Response(
@@ -133,78 +142,53 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Use AI to analyze the captured image and compare with student photos
-      // This uses the Lovable AI Gateway with Gemini for vision analysis
-      const prompt = `You are a facial recognition system for a martial arts academy attendance system.
-
-I will provide you with:
-1. A captured photo (base64 encoded) from attendance check
-2. A list of registered students with their profile photos
-
-Your task:
-1. Identify any faces visible in the captured photo
-2. Compare each face with the registered student photos
-3. Return a list of potential matches with confidence scores
-
-For each detected face, estimate a similarity score (0-100) with each registered student.
-A score above 70 indicates a likely match.
-
-Registered students:
-${students.map(s => `- ${s.name} (ID: ${s.id}): ${s.photo_front}`).join('\n')}
-
-Captured image (base64): ${image_base64.substring(0, 100)}...
-
-Return a JSON object with:
-{
-  "detected_faces": number,
-  "matches": [
-    {
-      "student_id": "uuid",
-      "student_name": "name",
-      "confidence": number (0-100),
-      "matched": boolean (true if confidence > 70)
-    }
-  ]
-}
-
-IMPORTANT: Return ONLY the JSON object, no markdown or additional text.`;
-
       if (!lovableApiKey) {
-        // Fallback: simulate recognition based on random matching for demo purposes
-        console.log("No AI key available, using simulation mode");
-        
-        const simulatedResults: FaceComparisonResult[] = [];
-        const numFaces = Math.floor(Math.random() * 3) + 1; // 1-3 faces detected
-        
-        // Randomly select some students as "recognized"
-        const shuffled = [...students].sort(() => 0.5 - Math.random());
-        const matched = shuffled.slice(0, Math.min(numFaces, shuffled.length));
-        
-        for (const student of matched) {
-          const confidence = 70 + Math.floor(Math.random() * 25); // 70-95% confidence
-          simulatedResults.push({
-            student_id: student.id,
-            student_name: student.name,
-            confidence,
-            matched: true,
-          });
-        }
-
+        console.error("LOVABLE_API_KEY not configured");
         return new Response(
-          JSON.stringify({
-            success: true,
-            recognized: simulatedResults.length > 0,
-            results: simulatedResults,
-            unrecognized_count: Math.max(0, numFaces - simulatedResults.length),
-            message: `Recognized ${simulatedResults.length} student(s) (simulation mode)`,
-          } as RecognitionResponse),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          JSON.stringify({ success: false, error: "AI service not configured. Please contact support." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
 
-      // Use Lovable AI Gateway for actual recognition
+      // Build the prompt for vision analysis
+      const studentsList = students.map(s => 
+        `- ${s.name} (ID: ${s.id}, Belt: ${s.belt}): Profile photo URL: ${s.photo_front}`
+      ).join('\n');
+
+      const prompt = `You are an AI facial recognition assistant for a Brazilian Jiu-Jitsu academy attendance system.
+
+Your task is to analyze the provided photo and identify which registered students appear in it by comparing faces.
+
+REGISTERED STUDENTS WITH THEIR PROFILE PHOTOS:
+${studentsList}
+
+INSTRUCTIONS:
+1. Look at the captured photo carefully to identify faces
+2. Compare each detected face with the profile photos of registered students (accessible via the URLs above)
+3. For each face you can identify, estimate a similarity/confidence score from 0-100
+4. A match should have confidence >= 70 to be considered positive
+
+IMPORTANT: Return your analysis as a valid JSON object with this exact structure:
+{
+  "detected_faces": <number of faces found in the photo>,
+  "matches": [
+    {
+      "student_id": "<exact UUID from the student list>",
+      "student_name": "<exact name from the student list>",
+      "confidence": <number 0-100>,
+      "matched": <true if confidence >= 70, false otherwise>
+    }
+  ],
+  "analysis_notes": "<brief description of what you observed>"
+}
+
+Only include students you are reasonably confident about (confidence >= 60).
+Return ONLY the JSON object, no markdown formatting or additional text.`;
+
+      console.log("Calling Lovable AI Gateway for facial recognition...");
+
       try {
-        const aiResponse = await fetch("https://ai-gateway.lovable.ai/v1/chat/completions", {
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -226,37 +210,58 @@ IMPORTANT: Return ONLY the JSON object, no markdown or additional text.`;
                 ],
               },
             ],
-            max_tokens: 1000,
+            max_tokens: 2000,
           }),
         });
 
         if (!aiResponse.ok) {
+          const errorText = await aiResponse.text();
+          console.error(`AI Gateway error: ${aiResponse.status} - ${errorText}`);
+          
+          if (aiResponse.status === 429) {
+            return new Response(
+              JSON.stringify({ success: false, error: "AI service rate limit exceeded. Please try again later." }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 }
+            );
+          }
+          if (aiResponse.status === 402) {
+            return new Response(
+              JSON.stringify({ success: false, error: "AI service credits exhausted. Please contact support." }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 402 }
+            );
+          }
+          
           throw new Error(`AI Gateway error: ${aiResponse.status}`);
         }
 
         const aiData = await aiResponse.json();
         const content = aiData.choices?.[0]?.message?.content || "{}";
         
+        console.log("AI response received:", content.substring(0, 500));
+
         // Parse AI response
         let parsedResult;
         try {
           // Clean the response if it has markdown
           const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
           parsedResult = JSON.parse(cleanContent);
-        } catch {
+        } catch (parseError) {
           console.error("Failed to parse AI response:", content);
+          console.error("Parse error:", parseError);
           parsedResult = { detected_faces: 0, matches: [] };
         }
 
         const results: FaceComparisonResult[] = (parsedResult.matches || []).map((m: any) => ({
           student_id: m.student_id,
           student_name: m.student_name,
-          confidence: m.confidence,
-          matched: m.matched || m.confidence > 70,
+          confidence: Math.round(m.confidence || 0),
+          matched: m.matched || (m.confidence && m.confidence >= 70),
         }));
 
         const recognizedCount = results.filter(r => r.matched).length;
         const unrecognizedCount = Math.max(0, (parsedResult.detected_faces || 0) - recognizedCount);
+
+        console.log(`Recognition complete: ${recognizedCount} matched, ${unrecognizedCount} unrecognized`);
 
         return new Response(
           JSON.stringify({
@@ -265,46 +270,27 @@ IMPORTANT: Return ONLY the JSON object, no markdown or additional text.`;
             results,
             unrecognized_count: unrecognizedCount,
             message: `Recognized ${recognizedCount} student(s)`,
+            analysis_notes: parsedResult.analysis_notes || "",
           } as RecognitionResponse),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       } catch (aiError) {
         console.error("AI recognition error:", aiError);
-        
-        // Fallback to simulation on AI error
-        const simulatedResults: FaceComparisonResult[] = [];
-        const shuffled = [...students].sort(() => 0.5 - Math.random());
-        const matched = shuffled.slice(0, Math.min(2, shuffled.length));
-        
-        for (const student of matched) {
-          simulatedResults.push({
-            student_id: student.id,
-            student_name: student.name,
-            confidence: 75 + Math.floor(Math.random() * 20),
-            matched: true,
-          });
-        }
-
         return new Response(
-          JSON.stringify({
-            success: true,
-            recognized: simulatedResults.length > 0,
-            results: simulatedResults,
-            unrecognized_count: 0,
-            message: `Recognized ${simulatedResults.length} student(s) (fallback mode)`,
-          } as RecognitionResponse),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+          JSON.stringify({ 
+            success: false, 
+            error: `AI recognition failed: ${aiError instanceof Error ? aiError.message : String(aiError)}` 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
     }
 
     // Record attendance with facial recognition results
     if (action === "record_attendance") {
-      const { recognized_students, visitors, experimental, photo_url } = await req.json();
-      
-      if (!ct_id || !class_id) {
+      if (!ct_id) {
         return new Response(
-          JSON.stringify({ success: false, error: "Missing required fields: ct_id, class_id" }),
+          JSON.stringify({ success: false, error: "Missing required field: ct_id" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
         );
       }
@@ -330,22 +316,25 @@ IMPORTANT: Return ONLY the JSON object, no markdown or additional text.`;
         }
       }
 
+      console.log(`Recording attendance for CT: ${ct_id}, class: ${class_id || 'none'}`);
+
       // Create attendance record
       const { data: attendance, error: attendanceError } = await supabaseAdmin
         .from("attendance_records")
         .insert({
           ct_id,
-          class_id,
+          class_id: class_id || null,
           date: new Date().toISOString().split("T")[0],
           visitors: visitors || 0,
           experimental: experimental || 0,
-          photo_url,
+          photo_url: photo_url || null,
           created_by: createdBy,
         })
         .select()
         .single();
 
       if (attendanceError) {
+        console.error("Attendance record error:", attendanceError);
         return new Response(
           JSON.stringify({ success: false, error: `Failed to create attendance: ${attendanceError.message}` }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -353,17 +342,23 @@ IMPORTANT: Return ONLY the JSON object, no markdown or additional text.`;
       }
 
       // Add recognized students to attendance
-      if (recognized_students && Array.isArray(recognized_students)) {
-        for (const studentResult of recognized_students) {
-          await supabaseAdmin
-            .from("attendance_students")
-            .insert({
-              attendance_id: attendance.id,
-              student_id: studentResult.student_id,
-              recognized: studentResult.matched,
-            });
+      if (recognized_students && Array.isArray(recognized_students) && recognized_students.length > 0) {
+        const studentRecords = recognized_students.map((studentResult: FaceComparisonResult) => ({
+          attendance_id: attendance.id,
+          student_id: studentResult.student_id,
+          recognized: studentResult.matched,
+        }));
+
+        const { error: studentsError } = await supabaseAdmin
+          .from("attendance_students")
+          .insert(studentRecords);
+
+        if (studentsError) {
+          console.error("Attendance students error:", studentsError);
         }
       }
+
+      console.log(`Attendance recorded: ${attendance.id} with ${recognized_students?.length || 0} students`);
 
       return new Response(
         JSON.stringify({
