@@ -19,6 +19,7 @@ import {
   Wallet,
   Store,
   ClipboardList,
+  StickyNote,
 } from "lucide-react";
 
 export interface AppNavItem {
@@ -132,6 +133,7 @@ export function getAllNavItemsForRole(role: AppRole | null): AppNavItem[] {
         { key: "flags", label: "Flags", icon: Flag, path: "/feature-flags", group: "Administração" },
         { key: "auditoria", label: "Auditoria", icon: FileText, path: "/auditoria", group: "Administração" },
         { key: "financeiro", label: "Financeiro", icon: DollarSign, path: "/financeiro", group: "Financeiro" },
+        { key: "notas", label: "Notas", icon: StickyNote, path: "/notas", group: "Pessoal" },
         CONFIG_ITEM,
       ];
 
@@ -148,6 +150,7 @@ export function getAllNavItemsForRole(role: AppRole | null): AppNavItem[] {
         { key: "graduacao", label: "Graduação", icon: Award, path: "/graduacao", module: "graduacao", group: "Acadêmico" },
         { key: "mensagens", label: "Mensagens", icon: MessageSquare, path: "/mensagens", module: "comunicacao", group: "Comunicação" },
         { key: "relatorios", label: "Relatórios", icon: BarChart3, path: "/relatorios", module: "relatorios", group: "Relatórios" },
+        { key: "notas", label: "Notas", icon: StickyNote, path: "/notas", group: "Pessoal" },
         PROFILE_ITEM,
         CONFIG_ITEM,
       ];
@@ -160,6 +163,7 @@ export function getAllNavItemsForRole(role: AppRole | null): AppNavItem[] {
         { key: "presenca", label: "Presença", icon: Camera, path: "/presenca", module: "presenca", group: "Operação" },
         { key: "graduacao", label: "Graduação", icon: Award, path: "/graduacao", module: "graduacao", group: "Acadêmico" },
         { key: "mensagens", label: "Mensagens", icon: MessageSquare, path: "/mensagens", module: "comunicacao", group: "Comunicação" },
+        { key: "notas", label: "Notas", icon: StickyNote, path: "/notas", group: "Pessoal" },
         PROFILE_ITEM,
         CONFIG_ITEM,
       ];
@@ -173,6 +177,7 @@ export function getAllNavItemsForRole(role: AppRole | null): AppNavItem[] {
         { key: "caixa", label: "Caixa", icon: Wallet, path: "/caixa", module: "financeiro", group: "Financeiro" },
         { key: "crm", label: "CRM", icon: ClipboardList, path: "/crm", module: "crm", group: "Vendas" },
         { key: "mensagens", label: "Mensagens", icon: MessageSquare, path: "/mensagens", module: "comunicacao", group: "Comunicação" },
+        { key: "notas", label: "Notas", icon: StickyNote, path: "/notas", group: "Pessoal" },
         PROFILE_ITEM,
         CONFIG_ITEM,
       ];
@@ -185,6 +190,7 @@ export function getAllNavItemsForRole(role: AppRole | null): AppNavItem[] {
         { key: "extrato", label: "Extrato", icon: Receipt, path: "/extrato", group: "Aluno" },
         { key: "loja", label: "Loja", icon: Store, path: "/loja", group: "Aluno" },
         { key: "mensagens", label: "Mensagens", icon: MessageSquare, path: "/mensagens", module: "comunicacao", group: "Comunicação" },
+        { key: "notas", label: "Notas", icon: StickyNote, path: "/notas", group: "Pessoal" },
         CONFIG_ITEM,
       ];
 
