@@ -32,7 +32,7 @@ export interface AppNavItem {
 
 export const DASHBOARD_ITEM: AppNavItem = {
   key: "dashboard",
-  label: "Dashboard",
+  label: "Painel Principal",
   icon: LayoutDashboard,
   path: "/dashboard",
   group: "Principal",
