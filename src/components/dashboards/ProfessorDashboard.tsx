@@ -122,7 +122,7 @@ const ProfessorDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Dashboard do Professor</h1>
+        <h1 className="text-3xl font-bold">Painel Principal do Professor</h1>
         <p className="text-muted-foreground">Bem-vindo, {profile?.name?.split(' ')[0]}</p>
       </div>
 

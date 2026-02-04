@@ -121,7 +121,7 @@ const AtendenteDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Dashboard do Atendente</h1>
+        <h1 className="text-3xl font-bold">Painel Principal do Atendente</h1>
         <p className="text-muted-foreground">Bem-vindo(a), {profile?.name?.split(' ')[0]}</p>
       </div>
 
