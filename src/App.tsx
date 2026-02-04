@@ -22,6 +22,7 @@ import Perfil from "./pages/Perfil";
 import CTs from "./pages/CTs";
 import FeatureFlags from "./pages/FeatureFlags";
 import CaixaDia from "./pages/CaixaDia";
+import NotasPessoais from "./pages/NotasPessoais";
 import MainLayout from "./components/layouts/MainLayout";
 import NotFound from "./pages/NotFound";
 
@@ -60,6 +61,7 @@ const App = () => (
                 <Route path="/loja" element={<Cantina />} />
                 <Route path="/lancamentos" element={<Financeiro />} />
                 <Route path="/auditoria" element={<Relatorios />} />
+                <Route path="/notas" element={<NotasPessoais />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

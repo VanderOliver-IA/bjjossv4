@@ -671,6 +671,47 @@ export type Database = {
           },
         ]
       }
+      personal_notes: {
+        Row: {
+          color: string | null
+          content: string
+          created_at: string
+          id: string
+          pinned: boolean | null
+          profile_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean | null
+          profile_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean | null
+          profile_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_notes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean | null
