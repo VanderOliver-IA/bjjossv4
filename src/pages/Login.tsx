@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,16 +9,27 @@ import { Loader2, Shield, User, Users, Lock, Mail, ShieldCheck, Zap } from 'luci
 import { toast } from 'sonner';
 
 const Login = () => {
-  const { signIn } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redireciona se já estiver autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsLoading(true);
     try {
-      await signIn(email, password);
+      const success = await login(email, password);
+      if (success) {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error('Erro ao entrar', { description: error.message });
     } finally {
@@ -25,7 +37,7 @@ const Login = () => {
     }
   };
 
-  const handleDemoLogin = (role: 'super_admin' | 'admin_ct' | 'professor' | 'atendente' | 'aluno') => {
+  const handleDemoLogin = async (role: 'super_admin' | 'admin_ct' | 'professor' | 'atendente' | 'aluno') => {
     const demos = {
       super_admin: { email: 'super@bjjoss.com', pass: '123456' },
       admin_ct: { email: 'admin@brasilia.com', pass: '123456' },
@@ -37,12 +49,20 @@ const Login = () => {
     const creds = demos[role];
     setEmail(creds.email);
     setPassword(creds.pass);
+    setIsLoading(true);
 
     toast.info(`Iniciando Sessão Demo: ${role.replace('_', ' ').toUpperCase()}`);
 
-    setTimeout(() => {
-      signIn(creds.email, creds.pass).catch(err => toast.error(err.message));
-    }, 500);
+    try {
+      const success = await login(creds.email, creds.pass);
+      if (success) {
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      toast.error('Erro no login demo', { description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

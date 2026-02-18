@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userRole = roleData?.role as AppRole | undefined;
-      
+
       // Fetch module permissions if user has a CT and role
       // Se estivermos simulando um papel, usamos o papel simulado para as permissões de módulo
       const activeRole = viewAsRole || userRole;
@@ -126,19 +126,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Use setTimeout to prevent potential race conditions
-          setTimeout(async () => {
-            const profileData = await fetchProfile(session.user.id);
-            if (profileData) {
-              setProfile(profileData);
-              setRole(profileData.role || null);
-            }
-            setIsLoading(false);
-          }, 0);
+          setIsLoading(true); // Force loading state while fetching profile
+          const profileData = await fetchProfile(session.user.id);
+          if (profileData) {
+            setProfile(profileData);
+            setRole(profileData.role || null);
+          }
+          setIsLoading(false);
         } else {
           setProfile(null);
           setRole(null);
-          setViewAsRole(null); // Reset impersonation on logout
+          setViewAsRole(null);
           setModulePermissions(null);
           setIsLoading(false);
         }
@@ -149,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id).then((profileData) => {
           if (profileData) {
@@ -236,26 +234,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
     // Usar o papel simulado se existir, caso contrário o papel real
     const activeRole = viewAsRole || role;
-    
+
     if (!activeRole) return false;
-    
+
     // Super admin real sempre tem acesso a tudo (independente do que está visualizando)
     // MAS para propósitos de teste de interface, se ele estiver "assistindo" como Aluno, 
     // ele deve ver apenas o que o Aluno vê se quisermos fidelidade TOTAL ao teste.
     // O usuário pediu: "ver todas as funcionalidades que estão em cada perfil"
     // Então aqui devemos aplicar as restrições do papel simulado.
-    
+
     // No entanto, se o papel real for super_admin e o usuário quiser voltar ao seletor, 
     // precisamos garantir que os controles de admin não sumam se eles forem externos aos módulos.
-    
+
     // Se o papel visualizado for super_admin ou admin_ct, tem acesso total
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
-    
+
     // Se houver permissões específicas carregadas (para o papel ativo)
     if (modulePermissions) {
       return modulePermissions[module] ?? false;
     }
-    
+
     // Permissões padrão por papel
     const defaultPermissions: Record<AppRole, ModulePermissions> = {
       super_admin: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
