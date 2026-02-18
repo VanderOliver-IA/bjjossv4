@@ -125,30 +125,6 @@ const SuperAdminDashboard = () => {
           </p>
         </div>
 
-        {/* Simulador de Papéis (Impersonation) */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/5 p-4 rounded-3xl flex items-center gap-4 shadow-premium group">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1 text-center">Simular Visão</span>
-            <div className="flex gap-2">
-              {(['super_admin', 'admin', 'professor', 'atendente', 'aluno'] as AppRole[]).map((r) => (
-                <Button
-                  key={r}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setViewAsRole(r === 'super_admin' ? null : r)}
-                  className={cn(
-                    "h-8 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all",
-                    ((r === 'super_admin' && !viewAsRole) || viewAsRole === r)
-                      ? "bg-primary text-black hover:bg-primary/90 shadow-neon"
-                      : "text-muted-foreground hover:text-white hover:bg-white/5"
-                  )}
-                >
-                  {r.replace('_', ' ')}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Stats Cards - Premium Redesign */}
