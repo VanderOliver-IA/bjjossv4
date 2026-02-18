@@ -105,7 +105,7 @@ const ProfessorDashboard = () => {
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10" />
                   <div className="flex-1">
                     <p className="font-bold text-sm text-white">Aluno Exemplo {i}</p>
-                    <p className="text-xs text-muted-foreground">98% de Frequência • Faixa Branca -> Azul</p>
+                    <p className="text-xs text-muted-foreground">98% de Frequência • Faixa Branca para Azul</p>
                   </div>
                   <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-full">
                     <CheckCircle2 className="w-4 h-4 text-primary" />
