@@ -20,7 +20,10 @@ import Comunicacao from "./pages/Comunicacao";
 import Relatorios from "./pages/Relatorios";
 import Perfil from "./pages/Perfil";
 import CTs from "./pages/CTs";
+import CTManagement from "./pages/CTManagement";
+import ManagePermissions from "./pages/ManagePermissions";
 import FeatureFlags from "./pages/FeatureFlags";
+import GlobalLogs from "./pages/GlobalLogs";
 import CaixaDia from "./pages/CaixaDia";
 import NotasPessoais from "./pages/NotasPessoais";
 import MainLayout from "./components/layouts/MainLayout";
@@ -53,14 +56,16 @@ const App = () => (
                 <Route path="/mensagens" element={<Comunicacao />} />
                 <Route path="/relatorios" element={<Relatorios />} />
                 <Route path="/perfil" element={<Perfil />} />
-                <Route path="/cts" element={<CTs />} />
+                <Route path="/cts" element={<CTManagement />} />
+                <Route path="/cts/list" element={<CTs />} />
+                <Route path="/configuracoes/permissoes" element={<ManagePermissions />} />
                 <Route path="/feature-flags" element={<FeatureFlags />} />
                 <Route path="/caixa" element={<CaixaDia />} />
                 <Route path="/frequencia" element={<Relatorios />} />
                 <Route path="/extrato" element={<Financeiro />} />
                 <Route path="/loja" element={<Cantina />} />
                 <Route path="/lancamentos" element={<Financeiro />} />
-                <Route path="/auditoria" element={<Relatorios />} />
+                <Route path="/auditoria" element={<GlobalLogs />} />
                 <Route path="/notas" element={<NotasPessoais />} />
               </Route>
               <Route path="*" element={<NotFound />} />

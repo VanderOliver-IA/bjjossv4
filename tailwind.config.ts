@@ -78,6 +78,15 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        'premium': '0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
+        'premium-hover': '0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 30px rgba(59, 130, 246, 0.2)',
+        'neon': '0 0 15px rgba(59, 130, 246, 0.5)',
+      },
+      backgroundImage: {
+        'glass-gradient': 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%)',
+        'premium-gradient': 'linear-gradient(135deg, #0f172a 0%, #020617 100%)',
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -88,8 +97,8 @@ export default {
           to: { height: "0" },
         },
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(99, 102, 241, 0.4)" },
-          "50%": { boxShadow: "0 0 30px rgba(147, 51, 234, 0.6)" },
+          "0%, 100%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.4)" },
+          "50%": { boxShadow: "0 0 30px rgba(59, 130, 246, 0.6)" },
         },
         "slide-up": {
           from: { transform: "translateY(100%)", opacity: "0" },

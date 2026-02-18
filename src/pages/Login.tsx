@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 
 const Login = () => {
@@ -30,13 +31,13 @@ const Login = () => {
     setLoading(true);
 
     const success = await login(email, password);
-    
+
     if (success) {
       navigate('/dashboard');
     } else {
       setError('Credenciais inválidas ou email não verificado');
     }
-    
+
     setLoading(false);
   };
 
@@ -46,12 +47,12 @@ const Login = () => {
     setLoading(true);
 
     const success = await signUp(email, password, name);
-    
+
     if (success) {
       setActiveTab('login');
       setError('');
     }
-    
+
     setLoading(false);
   };
 
@@ -64,43 +65,58 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
-        <div className="flex flex-col items-center">
-          <img src={logo} alt="BJJ OSS" className="h-32 w-auto mb-4" />
-          <p className="text-muted-foreground text-sm">Organização de Centro de Treinamento</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#070708] p-4 relative overflow-hidden">
+      {/* Animated Background Highlights */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[120px] rounded-full animate-delay-1000 animate-pulse" />
+
+      <div className="w-full max-w-md space-y-8 relative z-10 transition-all duration-700 animate-in fade-in zoom-in-95">
+        {/* Logo Section */}
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="w-20 h-20 bg-primary/20 rounded-2xl flex items-center justify-center border border-primary/30 shadow-neon">
+            <span className="text-primary font-black text-4xl">B</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-black tracking-tighter text-white">BJJ OSS <span className="text-primary tracking-normal">MANAGEMENT</span></h1>
+            <p className="text-muted-foreground text-sm uppercase tracking-widest font-medium mt-1">O ecossistema definitivo para o Jiu-Jitsu</p>
+          </div>
         </div>
 
-        {/* Login/Signup Card */}
-        <Card className="border-border">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <CardHeader className="space-y-1 pb-2">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
+        {/* Auth Card */}
+        <Card className="bg-[#111114]/60 backdrop-blur-2xl border-white/5 shadow-2xl rounded-[32px] overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <CardHeader className="space-y-4 p-8 pb-4">
+              <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1 rounded-2xl border border-white/5">
+                <TabsTrigger value="login" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold transition-all">Entrar</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold transition-all">Começar</TabsTrigger>
               </TabsList>
             </CardHeader>
-            <CardContent>
-              <TabsContent value="login" className="mt-0">
-                <form onSubmit={handleLogin} className="space-y-4">
+
+            <CardContent className="p-8 pt-0">
+              <TabsContent value="login" className="mt-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <form onSubmit={handleLogin} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-white/70 font-bold ml-1">Email Profissional</Label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="seu@email.com"
+                      placeholder="seu@exemplo.com"
+                      className="bg-white/5 border-white/10 rounded-xl h-12 focus:border-primary/50 focus:ring-primary/20 transition-all text-white"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
+                    <div className="flex justify-between">
+                      <Label htmlFor="password" className="text-white/70 font-bold ml-1">Senha de Acesso</Label>
+                      <button type="button" className="text-[10px] uppercase tracking-wider text-primary font-bold hover:underline">Esqueceu?</button>
+                    </div>
                     <Input
                       id="password"
                       type="password"
                       placeholder="••••••••"
+                      className="bg-white/5 border-white/10 rounded-xl h-12 focus:border-primary/50 focus:ring-primary/20 transition-all text-white"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -108,49 +124,55 @@ const Login = () => {
                   </div>
 
                   {error && (
-                    <div className="text-destructive text-sm text-center">{error}</div>
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold p-3 rounded-xl text-center flex items-center justify-center gap-2">
+                      {error}
+                    </div>
                   )}
 
                   <Button
                     type="submit"
-                    className="w-full btn-presence text-white font-semibold"
+                    className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-95"
                     disabled={loading}
                   >
-                    {loading ? 'Entrando...' : 'Entrar'}
+                    {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+                    {loading ? 'SOLICITANDO...' : 'ACESSAR AGORA'}
                   </Button>
                 </form>
               </TabsContent>
 
-              <TabsContent value="signup" className="mt-0">
-                <form onSubmit={handleSignUp} className="space-y-4">
+              <TabsContent value="signup" className="mt-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                <form onSubmit={handleSignUp} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nome Completo</Label>
+                    <Label htmlFor="signup-name" className="text-white/70 font-bold ml-1">Nome do Responsável</Label>
                     <Input
                       id="signup-name"
                       type="text"
-                      placeholder="Seu nome"
+                      placeholder="Ex: Mestre Gracie"
+                      className="bg-white/5 border-white/10 rounded-xl h-12 text-white"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email" className="text-white/70 font-bold ml-1">Email de Contato</Label>
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="seu@email.com"
+                      placeholder="seu@ct.com"
+                      className="bg-white/5 border-white/10 rounded-xl h-12 text-white"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
+                    <Label htmlFor="signup-password" className="text-white/70 font-bold ml-1">Defina uma Senha</Label>
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Segurança mínima 6"
+                      className="bg-white/5 border-white/10 rounded-xl h-12 text-white"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -158,27 +180,31 @@ const Login = () => {
                     />
                   </div>
 
-                  {error && (
-                    <div className="text-destructive text-sm text-center">{error}</div>
-                  )}
-
                   <Button
                     type="submit"
-                    className="w-full btn-presence text-white font-semibold"
+                    className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black rounded-xl shadow-neon transition-all hover:scale-[1.02] active:scale-95"
                     disabled={loading}
                   >
-                    {loading ? 'Criando conta...' : 'Criar Conta'}
+                    {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+                    {loading ? 'CONFIGURANDO...' : 'CRIAR MEU ECOSSISTEMA'}
                   </Button>
+
+                  <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-medium">Ao criar conta você aceita nossos termos de uso.</p>
                 </form>
               </TabsContent>
             </CardContent>
           </Tabs>
         </Card>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground">
-          Desenvolvido por <span className="font-medium">OláMundoDigital</span>
-        </p>
+        {/* Extended Footer */}
+        <div className="flex flex-col items-center gap-6 pt-4">
+          <div className="flex gap-4 grayscale opacity-30">
+            {/* Simulação de logos de parceiros/meios de pagto se quisesse w-10 */}
+          </div>
+          <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold">
+            Powered by <span className="text-white">OláMundoDigital</span> &copy; 2024
+          </p>
+        </div>
       </div>
     </div>
   );

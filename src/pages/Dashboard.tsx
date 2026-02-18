@@ -7,7 +7,7 @@ import AlunoDashboard from '@/components/dashboards/AlunoDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const Dashboard = () => {
-  const { user, role, isLoading } = useAuth();
+  const { user, role, viewAsRole, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -24,7 +24,9 @@ const Dashboard = () => {
 
   if (!user) return null;
 
-  switch (role) {
+  const activeRole = viewAsRole || role;
+
+  switch (activeRole) {
     case 'super_admin':
       return <SuperAdminDashboard />;
     case 'admin_ct':

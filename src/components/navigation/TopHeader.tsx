@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -34,70 +34,77 @@ const TopHeader = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border z-50">
-      <div className="max-w-screen-xl mx-auto px-4 h-full flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <img src={logo} alt="BJJ OSS" className="h-8 w-auto" />
-        </Link>
+    <header className="fixed top-0 right-0 left-0 lg:left-64 h-16 bg-[#0A0A0B]/60 backdrop-blur-xl border-b border-white/5 z-40 transition-all duration-300">
+      <div className="h-full px-6 flex items-center justify-between">
+        {/* Mobile Logo / Page Title */}
+        <div className="flex items-center gap-4">
+          <Link to="/dashboard" className="lg:hidden flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xs">B</span>
+            </div>
+            <span className="font-bold text-white tracking-tight">BjjOss</span>
+          </Link>
+          <div className="hidden lg:block">
+            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Global Management</h2>
+          </div>
+        </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
-
-          {/* Notifications */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground relative"
-          >
+        <div className="flex items-center gap-3">
+          {/* Notifications - Premium Style */}
+          <button className="relative p-2 text-muted-foreground hover:text-white transition-colors group">
             <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-          </Button>
+            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-[#0A0A0B] group-hover:animate-ping" />
+          </button>
 
-          {/* User Menu */}
+          <div className="h-6 w-px bg-white/10 mx-1" />
+
+          {/* User Profile - Premium Style */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
+              <button className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-white/5 transition-all group">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-bold text-white group-hover:text-primary transition-colors">{profile.name}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-medium">{role ? roleLabels[role] : ''}</p>
                 </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">{profile.name}</p>
-                  <p className="text-xs text-muted-foreground">{role ? roleLabels[role] : ''}</p>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-white/10 group-hover:border-primary/50 transition-all shadow-premium">
+                  <User className="h-5 w-5 text-white" />
                 </div>
-              </Button>
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div>
-                  <p className="font-medium">{profile.name}</p>
-                  <p className="text-xs text-muted-foreground">{profile.email}</p>
+            <DropdownMenuContent align="end" className="w-64 bg-[#0E0E10] border-white/10 shadow-2xl p-2 rounded-2xl">
+              <DropdownMenuLabel className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <User className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">{profile.name}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[150px]">{profile.email}</p>
+                  </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/perfil" className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  Meu Perfil
+              <DropdownMenuSeparator className="bg-white/5" />
+              <DropdownMenuItem asChild className="focus:bg-primary/20 focus:text-primary p-3 rounded-xl cursor-pointer">
+                <Link to="/perfil" className="flex items-center gap-3 w-full">
+                  <div className="p-2 bg-white/5 rounded-lg"><User className="h-4 w-4" /></div>
+                  <span className="font-medium">Meu Perfil</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
+              <DropdownMenuItem onClick={toggleTheme} className="focus:bg-primary/20 focus:text-primary p-3 rounded-xl cursor-pointer">
+                <div className="flex items-center gap-3 w-full">
+                  <div className="p-2 bg-white/5 rounded-lg">
+                    {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  </div>
+                  <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/5" />
+              <DropdownMenuItem onClick={handleLogout} className="focus:bg-destructive/20 focus:text-destructive p-3 rounded-xl cursor-pointer text-destructive">
+                <div className="flex items-center gap-3 w-full">
+                  <div className="p-2 bg-destructive/10 rounded-lg"><LogOut className="h-4 w-4" /></div>
+                  <span className="font-medium font-bold">Encerrar Sessão</span>
+                </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

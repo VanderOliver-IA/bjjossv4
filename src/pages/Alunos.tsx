@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 import {
   Dialog,
@@ -19,13 +19,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Search, Filter, Eye, Edit, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit, MoreHorizontal, QrCode } from 'lucide-react';
+import QRCodeDialog from '@/components/students/QRCodeDialog';
 import { mockStudents } from '@/data/mockData';
 import { Student, BeltType } from '@/types';
 
 const Alunos = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [isQRCOdeOpen, setIsQRCodeOpen] = useState(false);
 
   const filteredStudents = mockStudents.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -160,8 +162,8 @@ const Alunos = () => {
                     <div className="flex items-center justify-end gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="icon"
                             onClick={() => setSelectedStudent(student)}
                           >
@@ -173,7 +175,10 @@ const Alunos = () => {
                             <DialogTitle>Detalhes do Aluno</DialogTitle>
                           </DialogHeader>
                           {selectedStudent && (
-                            <StudentDetails student={selectedStudent} />
+                            <StudentDetails
+                              student={selectedStudent}
+                              onGenerateQR={() => setIsQRCodeOpen(true)}
+                            />
                           )}
                         </DialogContent>
                       </Dialog>
@@ -188,11 +193,20 @@ const Alunos = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {selectedStudent && (
+        <QRCodeDialog
+          isOpen={isQRCOdeOpen}
+          onOpenChange={setIsQRCodeOpen}
+          studentId={selectedStudent.id}
+          studentName={selectedStudent.name}
+        />
+      )}
     </div>
   );
 };
 
-const StudentDetails = ({ student }: { student: Student }) => {
+const StudentDetails = ({ student, onGenerateQR }: { student: Student, onGenerateQR: () => void }) => {
   const beltColors: Record<BeltType, string> = {
     branca: 'bg-white text-black border border-muted',
     azul: 'bg-primary text-primary-foreground',
@@ -216,6 +230,15 @@ const StudentDetails = ({ student }: { student: Student }) => {
           <Badge className={`mt-2 ${beltColors[student.belt]}`}>
             {student.belt.toUpperCase()} • {student.stripes} graus
           </Badge>
+          <div className="mt-4">
+            <Button
+              onClick={onGenerateQR}
+              className="gap-2 bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 rounded-xl"
+            >
+              <QrCode className="w-4 h-4" />
+              Gerar QR Code de Acesso
+            </Button>
+          </div>
         </div>
       </div>
 
