@@ -9,6 +9,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 const Dashboard = () => {
   const { user, role, viewAsRole, isLoading } = useAuth();
 
+  console.log('Dashboard State:', {
+    userId: user?.id,
+    role,
+    viewAsRole,
+    isLoading,
+    activeRole: viewAsRole || role
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-6">

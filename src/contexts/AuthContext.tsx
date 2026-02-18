@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
+      console.log('Fetching profile for:', userId);
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -85,7 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userRole = roleData?.role as AppRole | undefined;
 
       // Fetch module permissions if user has a CT and role
-      // Se estivermos simulando um papel, usamos o papel simulado para as permissões de módulo
       const activeRole = viewAsRole || userRole;
 
       if (profileData?.ct_id && activeRole) {
@@ -119,20 +119,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    let mounted = true;
 
-        if (session?.user) {
-          setIsLoading(true); // Force loading state while fetching profile
-          const profileData = await fetchProfile(session.user.id);
-          if (profileData) {
-            setProfile(profileData);
-            setRole(profileData.role || null);
+    const initializeAuth = async () => {
+      setIsLoading(true);
+
+      // Get initial session
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (initialSession?.user) {
+        setSession(initialSession);
+        setUser(initialSession.user);
+        const profileData = await fetchProfile(initialSession.user.id);
+        if (mounted && profileData) {
+          setProfile(profileData);
+          setRole(profileData.role || null);
+        }
+      }
+
+      if (mounted) setIsLoading(false);
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        if (!mounted) return;
+
+        console.log('Auth event:', event);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          // If we just signed in or the user changed, fetch profile
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+            setIsLoading(true);
+            const profileData = await fetchProfile(currentSession.user.id);
+            if (mounted && profileData) {
+              setProfile(profileData);
+              setRole(profileData.role || null);
+            }
+            setIsLoading(false);
           }
-          setIsLoading(false);
         } else {
           setProfile(null);
           setRole(null);
@@ -143,25 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        fetchProfile(session.user.id).then((profileData) => {
-          if (profileData) {
-            setProfile(profileData);
-            setRole(profileData.role || null);
-          }
-          setIsLoading(false);
-        });
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
