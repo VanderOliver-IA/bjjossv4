@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export type AppRole = 'super_admin' | 'admin_ct' | 'professor' | 'atendente' | 'aluno';
 
@@ -20,11 +21,8 @@ export interface ModulePermissions {
 
 export interface UserProfile {
   id: string;
-  user_id: string;
   name: string;
   email: string;
-  phone?: string;
-  avatar_url?: string;
   ct_id?: string;
   role?: AppRole;
 }
@@ -38,10 +36,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  signUp: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => Promise<void>;
   hasModuleAccess: (module: keyof ModulePermissions) => boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => void;
   setViewAsRole: (role: AppRole | null) => void;
 }
 
@@ -50,204 +47,109 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
   const [viewAsRole, setViewAsRole] = useState<AppRole | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [modulePermissions, setModulePermissions] = useState<ModulePermissions | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const loadingUserRef = useRef<string | null>(null);
+  // 1. O CORAÇÃO DA SOLUÇÃO: TanStack Query para carregar o perfil
+  // Remove 100% da necessidade de useEffects manuais e evita AbortError automaticamente
+  const { data: profileData, isLoading: isProfileLoading, refetch } = useQuery({
+    queryKey: ['userProfile', user?.id, viewAsRole],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      console.log('[AuthQuery] Buscando perfil para:', user.id);
 
-  const fetchProfileData = useCallback(async (uId: string, currentViewAs: AppRole | null) => {
-    if (loadingUserRef.current === uId) return null;
-
-    try {
-      loadingUserRef.current = uId;
-      console.log(`[Auth] Fetching profile for ${uId} at ${new Date().toISOString()}`);
-
-      // Get profile
-      const { data: profileData, error: profileErr } = await supabase
+      // Buscar Perfil
+      const { data: profile, error: pErr } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', uId)
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (profileErr) throw profileErr;
+      if (pErr) throw pErr;
 
-      // Get role
-      const { data: roleData, error: roleErr } = await supabase
+      // Buscar Role
+      const { data: roleRec } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', uId)
+        .eq('user_id', user.id)
         .maybeSingle();
 
-      if (roleErr) throw roleErr;
+      const userRole = roleRec?.role as AppRole;
+      return { ...profile, role: userRole } as UserProfile;
+    },
+    enabled: !!user?.id, // Só roda se tiver usuário logado
+    staleTime: 1000 * 60 * 5, // Cache por 5 minutos
+    retry: 2
+  });
 
-      const userRole = roleData?.role as AppRole | undefined;
-      const activeRole = currentViewAs || userRole;
-
-      // Get permissions if applicable
-      if (profileData?.ct_id && activeRole) {
-        const { data: permData } = await supabase
-          .from('role_permissions')
-          .select('modules')
-          .eq('ct_id', profileData.ct_id)
-          .eq('role', activeRole)
-          .maybeSingle();
-
-        if (permData?.modules) {
-          setModulePermissions(permData.modules as unknown as ModulePermissions);
-        }
-      }
-
-      return { ...profileData, role: userRole } as UserProfile;
-    } catch (err: any) {
-      console.error('[Auth] Fetch Profile Error:', err.message);
-      return null;
-    } finally {
-      loadingUserRef.current = null;
-    }
-  }, []);
-
-  const refreshProfile = useCallback(async () => {
-    if (user?.id) {
-      const data = await fetchProfileData(user.id, viewAsRole);
-      if (data) {
-        setProfile(data);
-        setRole(data.role || null);
-      }
-    }
-  }, [user?.id, viewAsRole, fetchProfileData]);
-
-  // Effect 1: Handle Auth State Changes only
+  // 2. Listener de Sessão do Supabase (Minimalista)
   useEffect(() => {
-    let mounted = true;
-
-    // Check initial session
+    // Pegar sessão inicial
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!mounted) return;
-      if (s) {
-        setSession(s);
-        setUser(s.user);
-      } else {
-        setIsLoading(false);
-      }
-    });
-
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      if (!mounted) return;
-      console.log('[Auth] State Changed:', event);
+      console.log('[Auth] Inicializando sessão...');
       setSession(s);
       setUser(s?.user ?? null);
-      if (!s) {
-        setProfile(null);
-        setRole(null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      console.log('[Auth] Evento Supabase:', event);
+      setSession(s);
+      setUser(s?.user ?? null);
+
+      if (event === 'SIGNED_OUT') {
+        queryClient.clear(); // Limpa todo o cache no logout
         setViewAsRole(null);
-        setModulePermissions(null);
-        setIsLoading(false);
       }
     });
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
-  // Effect 2: Handle Profile Data based on User ID only
-  useEffect(() => {
-    let mounted = true;
-
-    if (user?.id) {
-      const load = async () => {
-        setIsLoading(true);
-        const data = await fetchProfileData(user.id, viewAsRole);
-        if (mounted) {
-          if (data) {
-            setProfile(data);
-            setRole(data.role || null);
-            console.log('[Auth] Profile loaded for:', data.email);
-          } else {
-            console.warn('[Auth] Loaded null profile');
-          }
-          setIsLoading(false);
-        }
-      };
-      load();
-    }
-
-    return () => { mounted = false; };
-  }, [user?.id, viewAsRole, fetchProfileData]);
-
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast({ variant: 'destructive', title: 'Erro ao entrar', description: error.message });
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('Login error:', err);
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro de Login', description: error.message });
       return false;
     }
-  }, [toast]);
+    return true;
+  };
 
-  const signUp = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { name }, emailRedirectTo: window.location.origin }
-      });
-      if (error) {
-        toast({ variant: 'destructive', title: 'Erro ao cadastrar', description: error.message });
-        return false;
-      }
-      return !!data.user;
-    } catch (err) {
-      console.error('SignUp error:', err);
-      return false;
-    }
-  }, [toast]);
-
-  const logout = useCallback(async () => {
+  const logout = async () => {
     await supabase.auth.signOut();
-  }, []);
+  };
 
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
-    const activeRole = viewAsRole || role;
+    const activeRole = viewAsRole || profileData?.role;
     if (!activeRole) return false;
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
-    if (modulePermissions) return modulePermissions[module] ?? false;
 
-    const defaultPermissions: Record<AppRole, ModulePermissions> = {
-      super_admin: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
-      admin_ct: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
-      professor: { alunos: true, turmas: true, presenca: true, crm: false, financeiro: false, cantina: false, eventos: true, graduacao: true, comunicacao: true, relatorios: false },
-      atendente: { alunos: true, turmas: false, presenca: false, crm: true, financeiro: true, cantina: true, eventos: false, graduacao: false, comunicacao: true, relatorios: false },
-      aluno: { alunos: false, turmas: false, presenca: false, crm: false, financeiro: false, cantina: true, eventos: true, graduacao: false, comunicacao: true, relatorios: false },
+    // Fallback para permissões simples baseadas no role
+    const rolesWithAccess: Record<AppRole, (keyof ModulePermissions)[]> = {
+      super_admin: ['alunos', 'turmas', 'presenca', 'crm', 'financeiro', 'cantina', 'eventos', 'graduacao', 'comunicacao', 'relatorios'],
+      admin_ct: ['alunos', 'turmas', 'presenca', 'crm', 'financeiro', 'cantina', 'eventos', 'graduacao', 'comunicacao', 'relatorios'],
+      professor: ['alunos', 'turmas', 'presenca', 'eventos', 'graduacao', 'comunicacao'],
+      atendente: ['alunos', 'crm', 'financeiro', 'cantina', 'comunicacao'],
+      aluno: ['cantina', 'eventos', 'comunicacao'],
     };
-    return defaultPermissions[activeRole]?.[module] ?? false;
-  }, [role, viewAsRole, modulePermissions]);
+
+    return rolesWithAccess[activeRole]?.includes(module) ?? false;
+  }, [viewAsRole, profileData]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         session,
-        profile,
-        role,
+        profile: profileData || null,
+        role: profileData?.role || null,
         viewAsRole,
         isAuthenticated: !!user,
-        isLoading,
+        isLoading: isProfileLoading && !!user, // Só mostra carregando se tiver usuário mas o perfil ainda não chegou
         login,
-        signUp,
         logout,
         hasModuleAccess,
-        refreshProfile,
+        refreshProfile: () => refetch(),
         setViewAsRole,
       }}
     >
@@ -256,8 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-}
+};
