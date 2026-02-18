@@ -1,243 +1,121 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Calendar, UserCheck, TrendingUp, Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Skeleton } from '@/components/ui/skeleton';
-
-interface ClassData {
-  id: string;
-  name: string;
-  schedule: string;
-  student_count?: number;
-}
-
-interface AttendanceData {
-  id: string;
-  date: string;
-  training_classes?: {
-    name: string;
-  };
-  attendance_students: Array<{ id: string }>;
-  visitors: number;
-}
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Calendar, Users, CheckCircle2, QrCode, ClipboardList, Dumbbell, Award } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const ProfessorDashboard = () => {
-  const { profile } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [myClasses, setMyClasses] = useState<ClassData[]>([]);
-  const [recentAttendance, setRecentAttendance] = useState<AttendanceData[]>([]);
-  const [stats, setStats] = useState({
-    todayAttendance: 0,
-    totalStudents: 0,
-    averageAttendance: 82
-  });
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!profile?.id) return;
-
-      try {
-        // Fetch my classes
-        const { data: classesData } = await supabase
-          .from('training_classes')
-          .select('id, name, schedule, time_start, time_end')
-          .eq('professor_id', profile.id)
-          .eq('active', true);
-
-        if (classesData) {
-          // Get student count for each class
-          const classesWithCount = await Promise.all(
-            classesData.map(async (cls) => {
-              const { count } = await supabase
-                .from('student_classes')
-                .select('*', { count: 'exact', head: true })
-                .eq('class_id', cls.id);
-              return { ...cls, student_count: count || 0 };
-            })
-          );
-          setMyClasses(classesWithCount);
-
-          // Calculate total students
-          const totalStudents = classesWithCount.reduce((acc, cls) => acc + (cls.student_count || 0), 0);
-          setStats(prev => ({ ...prev, totalStudents }));
-        }
-
-        // Fetch today's attendance for my classes
-        const today = new Date().toISOString().split('T')[0];
-        if (classesData && classesData.length > 0) {
-          const classIds = classesData.map(c => c.id);
-          const { data: todayAtt } = await supabase
-            .from('attendance_records')
-            .select('id, attendance_students(id)')
-            .in('class_id', classIds)
-            .eq('date', today);
-
-          const todayCount = todayAtt?.reduce((acc, a) => acc + (a.attendance_students?.length || 0), 0) || 0;
-          setStats(prev => ({ ...prev, todayAttendance: todayCount }));
-
-          // Fetch recent attendance
-          const { data: attData } = await supabase
-            .from('attendance_records')
-            .select(`
-              id,
-              date,
-              visitors,
-              training_classes(name),
-              attendance_students(id)
-            `)
-            .in('class_id', classIds)
-            .order('date', { ascending: false })
-            .limit(5);
-
-          if (attData) setRecentAttendance(attData as AttendanceData[]);
-        }
-
-      } catch (error) {
-        console.error('Error fetching professor dashboard data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [profile?.id]);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-5 w-48 mt-2" />
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Painel Principal do Professor</h1>
-        <p className="text-muted-foreground">Bem-vindo, {profile?.name?.split(' ')[0]}</p>
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <Badge variant="outline" className="border-primary/30 text-primary font-bold bg-primary/5 uppercase tracking-tighter px-3">
+            <Dumbbell className="w-3 h-3 mr-1" />
+            Professor Space
+          </Badge>
+          <h1 className="text-4xl font-black tracking-tighter text-white">
+            Painel do Professor
+          </h1>
+          <p className="text-muted-foreground text-lg font-medium">
+            Gerencie suas aulas e acompanhe a evolução dos alunos.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="border-white/10 hover:bg-white/5 font-bold">
+            <Calendar className="w-4 h-4 mr-2" /> Agenda
+          </Button>
+          <Button className="bg-primary text-black font-bold hover:bg-primary/90 shadow-neon">
+            <QrCode className="w-4 h-4 mr-2" /> Chamada Rápida
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Presença Hoje</CardTitle>
-            <UserCheck className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.todayAttendance}</div>
-            <p className="text-xs text-muted-foreground">alunos treinaram</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Minhas Turmas</CardTitle>
-            <Calendar className="h-4 w-4 text-secondary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{myClasses.length}</div>
-            <p className="text-xs text-muted-foreground">turmas ativas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Alunos</CardTitle>
-            <Users className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalStudents}</div>
-            <p className="text-xs text-muted-foreground">nas minhas turmas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Frequência Média</CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageAttendance}%</div>
-            <p className="text-xs text-muted-foreground">este mês</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { title: "Aulas Hoje", value: "3", icon: Calendar, color: "text-blue-400" },
+          { title: "Alunos Esperados", value: "42", icon: Users, color: "text-indigo-400" },
+          { title: "Presenças Confirmadas", value: "12", icon: CheckCircle2, color: "text-emerald-400" },
+          { title: "Graduações Pendentes", value: "5", icon: Award, color: "text-amber-400" }
+        ].map((stat, i) => (
+          <Card key={i} className="bg-[#111114]/50 border-white/5 hover:border-white/10 transition-all group overflow-hidden relative">
+            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${stat.color}`}>
+              <stat.icon className="w-16 h-16" />
+            </div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-muted-foreground text-xs font-bold uppercase tracking-wider">{stat.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-4xl font-black text-white">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Today's Classes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Minhas Turmas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {myClasses.length > 0 ? myClasses.map(cls => (
-              <div key={cls.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div>
-                  <p className="font-medium">{cls.name}</p>
-                  <p className="text-sm text-muted-foreground">{cls.schedule || 'Horário não definido'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary">{cls.student_count}</p>
-                  <p className="text-xs text-muted-foreground">alunos</p>
-                </div>
-              </div>
-            )) : (
-              <p className="text-muted-foreground text-center py-4">Nenhuma turma atribuída</p>
-            )}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Next Classes */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              Próximas Aulas
+            </h3>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Attendance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Últimas Presenças Registradas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {recentAttendance.length > 0 ? recentAttendance.map(att => (
-              <div key={att.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <UserCheck className="h-5 w-5 text-primary" />
+          <div className="space-y-4">
+            {[
+              { time: "18:00", name: "Jiu Jitsu Kids", level: "Iniciante", students: 15 },
+              { time: "19:00", name: "Jiu Jitsu Adulto", level: "Todos", students: 25 },
+              { time: "20:30", name: "No-Gi Submission", level: "Avançado", students: 12 }
+            ].map((cls, i) => (
+              <div key={i} className="flex items-center justify-between p-5 bg-[#111114]/30 border border-white/5 rounded-2xl hover:bg-[#111114]/50 transition-colors group">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 bg-white/5 rounded-xl flex flex-col items-center justify-center border border-white/5 font-bold group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
+                    <span className="text-xs text-muted-foreground">HOJE</span>
+                    <span className="text-lg text-white group-hover:text-primary">{cls.time}</span>
                   </div>
                   <div>
-                    <p className="font-medium">{att.training_classes?.name || 'Treino'}</p>
-                    <p className="text-sm text-muted-foreground">{att.date}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <p className="font-bold">{att.attendance_students?.length || 0}</p>
-                    <p className="text-xs text-muted-foreground">presentes</p>
-                  </div>
-                  {att.visitors > 0 && (
-                    <div className="text-center">
-                      <p className="font-bold text-secondary">{att.visitors}</p>
-                      <p className="text-xs text-muted-foreground">visitantes</p>
+                    <h4 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{cls.name}</h4>
+                    <div className="flex gap-2">
+                      <Badge variant="secondary" className="bg-white/5 text-xs">{cls.level}</Badge>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Users className="w-3 h-3" /> {cls.students} alunos
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
+                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ClipboardList className="w-4 h-4 mr-2" /> Detalhes
+                </Button>
               </div>
-            )) : (
-              <p className="text-muted-foreground text-center py-4">Nenhuma presença registrada</p>
-            )}
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Quick Actions / Notifications */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            Aptos a Graduar
+          </h3>
+          <Card className="bg-[#111114]/30 border-white/5">
+            <CardContent className="p-0">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors flex items-center gap-4 cursor-pointer">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10" />
+                  <div className="flex-1">
+                    <p className="font-bold text-sm text-white">Aluno Exemplo {i}</p>
+                    <p className="text-xs text-muted-foreground">98% de Frequência • Faixa Branca -> Azul</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-full">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
