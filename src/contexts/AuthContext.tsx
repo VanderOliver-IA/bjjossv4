@@ -57,10 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [modulePermissions, setModulePermissions] = useState<ModulePermissions | null>(null);
   const { toast } = useToast();
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  // Estabilizar fetchProfile removendo dependências desnecessárias para evitar recriações
+  const fetchProfile = useCallback(async (userId: string, activeViewAsRole: AppRole | null = null) => {
     try {
-      console.log('Fetching profile for:', userId);
-      // Fetch profile
+      console.log('[Auth] Buscando perfil para:', userId);
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -68,11 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        console.error('[Auth] Erro ao buscar perfil:', profileError.message);
         return null;
       }
 
-      // Fetch user role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -80,13 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (roleError && roleError.code !== 'PGRST116') {
-        console.error('Error fetching role:', roleError);
+        console.error('[Auth] Erro ao buscar role:', roleError.message);
       }
 
       const userRole = roleData?.role as AppRole | undefined;
-
-      // Fetch module permissions if user has a CT and role
-      const activeRole = viewAsRole || userRole;
+      const activeRole = activeViewAsRole || userRole;
 
       if (profileData?.ct_id && activeRole) {
         const { data: permData } = await supabase
@@ -96,80 +94,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('role', activeRole)
           .single();
 
-        if (permData?.modules && typeof permData.modules === 'object' && !Array.isArray(permData.modules)) {
+        if (permData?.modules) {
           setModulePermissions(permData.modules as unknown as ModulePermissions);
         }
       }
 
       return { ...profileData, role: userRole } as UserProfile;
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error('[Auth] Erro catastrófico em fetchProfile:', error);
       return null;
     }
-  }, [viewAsRole]);
+  }, []); // Sem dependências para estabilidade total
 
   const refreshProfile = useCallback(async () => {
     if (user) {
-      const profileData = await fetchProfile(user.id);
+      const profileData = await fetchProfile(user.id, viewAsRole);
       if (profileData) {
         setProfile(profileData);
         setRole(profileData.role || null);
       }
     }
-  }, [user, fetchProfile]);
+  }, [user, viewAsRole, fetchProfile]);
 
   useEffect(() => {
     let mounted = true;
+    let authInitialized = false;
 
-    const initializeAuth = async () => {
-      setIsLoading(true);
-
-      // Get initial session
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-
+    const loadUserAndProfile = async (currentSession: Session | null) => {
       if (!mounted) return;
 
-      if (initialSession?.user) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        const profileData = await fetchProfile(initialSession.user.id);
+      if (currentSession?.user) {
+        console.log('[Auth] Carregando perfil do usuário...');
+        setIsLoading(true);
+        const profileData = await fetchProfile(currentSession.user.id);
+
         if (mounted && profileData) {
           setProfile(profileData);
           setRole(profileData.role || null);
+          setSession(currentSession);
+          setUser(currentSession.user);
+          console.log('[Auth] Perfil carregado com sucesso');
         }
+        setIsLoading(false);
+      } else {
+        setProfile(null);
+        setRole(null);
+        setSession(null);
+        setUser(null);
+        setIsLoading(false);
       }
-
-      if (mounted) setIsLoading(false);
     };
 
-    initializeAuth();
+    // 1. Verificar sessão inicial (Apenas UMA vez)
+    supabase.auth.getSession().then(({ data: { session: initSession } }) => {
+      if (!mounted || authInitialized) return;
+      if (initSession) {
+        loadUserAndProfile(initSession);
+      } else {
+        setIsLoading(false);
+      }
+      authInitialized = true;
+    });
 
-    // Listen for auth changes
+    // 2. Escutar mudanças de estado (Evitando loops)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (!mounted) return;
+        console.log('[Auth] Mudança de estado:', event);
 
-        console.log('Auth event:', event);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-
-        if (currentSession?.user) {
-          // If we just signed in or the user changed, fetch profile
-          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
-            setIsLoading(true);
-            const profileData = await fetchProfile(currentSession.user.id);
-            if (mounted && profileData) {
-              setProfile(profileData);
-              setRole(profileData.role || null);
-            }
-            setIsLoading(false);
-          }
-        } else {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          await loadUserAndProfile(currentSession);
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setRole(null);
-          setViewAsRole(null);
-          setModulePermissions(null);
+          setSession(null);
+          setUser(null);
           setIsLoading(false);
+        } else {
+          // Para outros eventos (INITIAL_SESSION, etc), apenas atualiza a sessão se necessário
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
         }
       }
     );
