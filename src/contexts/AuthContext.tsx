@@ -34,7 +34,7 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   role: AppRole | null;
-  viewAsRole: AppRole | null; // Novo: papel que está sendo visualizado
+  viewAsRole: AppRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -42,7 +42,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   hasModuleAccess: (module: keyof ModulePermissions) => boolean;
   refreshProfile: () => Promise<void>;
-  setViewAsRole: (role: AppRole | null) => void; // Novo: função para alterar a visão
+  setViewAsRole: (role: AppRole | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,43 +52,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
-  const [viewAsRole, setViewAsRole] = useState<AppRole | null>(null); // Novo estado
+  const [viewAsRole, setViewAsRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [modulePermissions, setModulePermissions] = useState<ModulePermissions | null>(null);
   const { toast } = useToast();
 
-  const fetchLock = useRef<string | null>(null);
+  const loadingUserRef = useRef<string | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string, activeViewAsRole: AppRole | null = null, retries = 3): Promise<UserProfile | null> => {
-    // Bloqueio para evitar chamadas duplicadas simultâneas
-    if (fetchLock.current === userId) {
-      console.log('[Auth] Busca em progresso, ignorando duplicada para:', userId);
-      return null;
-    }
+  const fetchProfileData = useCallback(async (uId: string, currentViewAs: AppRole | null) => {
+    if (loadingUserRef.current === uId) return null;
 
     try {
-      fetchLock.current = userId;
-      console.log('[Auth] Iniciando busca robusta (Tentativa:', 4 - retries, ') para:', userId);
+      loadingUserRef.current = uId;
+      console.log(`[Auth] Fetching profile for ${uId} at ${new Date().toISOString()}`);
 
-      const { data: profileData, error: profileError } = await supabase
+      // Get profile
+      const { data: profileData, error: profileErr } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', uId)
         .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (profileErr) throw profileErr;
 
-      const { data: roleData, error: roleError } = await supabase
+      // Get role
+      const { data: roleData, error: roleErr } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId)
+        .eq('user_id', uId)
         .maybeSingle();
 
-      if (roleError) throw roleError;
+      if (roleErr) throw roleErr;
 
       const userRole = roleData?.role as AppRole | undefined;
-      const activeRole = activeViewAsRole || userRole;
+      const activeRole = currentViewAs || userRole;
 
+      // Get permissions if applicable
       if (profileData?.ct_id && activeRole) {
         const { data: permData } = await supabase
           .from('role_permissions')
@@ -103,124 +102,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return { ...profileData, role: userRole } as UserProfile;
-    } catch (error: any) {
-      console.error(`[Auth] Erro em fetchProfile (${userId}):`, error.message || error);
-
-      // Se for AbortError e tiver tentativas, tenta de novo após um delay
-      if ((error.name === 'AbortError' || error.message?.includes('aborted')) && retries > 0) {
-        console.log('[Auth] Detectado AbortError, tentando novamente em 500ms...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        fetchLock.current = null; // Libera o lock para a tentativa
-        return fetchProfile(userId, activeViewAsRole, retries - 1);
-      }
-
+    } catch (err: any) {
+      console.error('[Auth] Fetch Profile Error:', err.message);
       return null;
     } finally {
-      fetchLock.current = null;
+      loadingUserRef.current = null;
     }
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user) {
-      const profileData = await fetchProfile(user.id, viewAsRole);
-      if (profileData) {
-        setProfile(profileData);
-        setRole(profileData.role || null);
+    if (user?.id) {
+      const data = await fetchProfileData(user.id, viewAsRole);
+      if (data) {
+        setProfile(data);
+        setRole(data.role || null);
       }
     }
-  }, [user, viewAsRole, fetchProfile]);
+  }, [user?.id, viewAsRole, fetchProfileData]);
 
+  // Effect 1: Handle Auth State Changes only
   useEffect(() => {
     let mounted = true;
-    let initialized = false;
 
-    const loadUserData = async (u: User, sess: Session) => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted) return;
-
-      console.log('[Auth] Carregando dados para:', u.email);
-      setIsLoading(true);
-
-      const profileData = await fetchProfile(u.id);
-
-      if (mounted) {
-        if (profileData) {
-          setProfile(profileData);
-          setRole(profileData.role || null);
-          setSession(sess);
-          setUser(u);
-          console.log('[Auth] Perfil carregado com sucesso:', profileData.email);
-        } else {
-          console.warn('[Auth] Perfil não retornado (limbo), definindo user básico');
-          setSession(sess);
-          setUser(u);
-        }
+      if (s) {
+        setSession(s);
+        setUser(s.user);
+      } else {
         setIsLoading(false);
       }
-    };
+    });
 
-    const checkInitialSession = async () => {
-      const { data: { session: initSession } } = await supabase.auth.getSession();
-      if (mounted && !initialized) {
-        if (initSession?.user) {
-          await loadUserData(initSession.user, initSession);
-        } else {
-          setIsLoading(false);
-        }
-        initialized = true;
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!mounted) return;
+      console.log('[Auth] State Changed:', event);
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (!s) {
+        setProfile(null);
+        setRole(null);
+        setViewAsRole(null);
+        setModulePermissions(null);
+        setIsLoading(false);
       }
-    };
-
-    checkInitialSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        if (!mounted) return;
-        console.log('[Auth] Evento recebido:', event);
-
-        if (currentSession?.user) {
-          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-            await loadUserData(currentSession.user, currentSession);
-          } else {
-            setSession(currentSession);
-            setUser(currentSession.user);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setProfile(null);
-          setRole(null);
-          setSession(null);
-          setUser(null);
-          setViewAsRole(null);
-          setModulePermissions(null);
-          setIsLoading(false);
-        }
-      }
-    );
+    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, []);
+
+  // Effect 2: Handle Profile Data based on User ID only
+  useEffect(() => {
+    let mounted = true;
+
+    if (user?.id) {
+      const load = async () => {
+        setIsLoading(true);
+        const data = await fetchProfileData(user.id, viewAsRole);
+        if (mounted) {
+          if (data) {
+            setProfile(data);
+            setRole(data.role || null);
+            console.log('[Auth] Profile loaded for:', data.email);
+          } else {
+            console.warn('[Auth] Loaded null profile');
+          }
+          setIsLoading(false);
+        }
+      };
+      load();
+    }
+
+    return () => { mounted = false; };
+  }, [user?.id, viewAsRole, fetchProfileData]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao fazer login',
-          description: error.message,
-        });
+        toast({ variant: 'destructive', title: 'Erro ao entrar', description: error.message });
         return false;
       }
-
-      return !!data.user;
-    } catch (error) {
-      console.error('Login error:', error);
+      return true;
+    } catch (err) {
+      console.error('Login error:', err);
       return false;
     }
   }, [toast]);
@@ -230,55 +200,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { name },
-          emailRedirectTo: window.location.origin,
-        },
+        options: { data: { name }, emailRedirectTo: window.location.origin }
       });
-
       if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao criar conta',
-          description: error.message,
-        });
+        toast({ variant: 'destructive', title: 'Erro ao cadastrar', description: error.message });
         return false;
       }
-
-      if (data.user && !data.session) {
-        toast({
-          title: 'Verifique seu email',
-          description: 'Um link de confirmação foi enviado para seu email.',
-        });
-      }
-
       return !!data.user;
-    } catch (error) {
-      console.error('SignUp error:', error);
+    } catch (err) {
+      console.error('SignUp error:', err);
       return false;
     }
   }, [toast]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setRole(null);
-    setViewAsRole(null);
-    setModulePermissions(null);
   }, []);
 
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
     const activeRole = viewAsRole || role;
-
     if (!activeRole) return false;
-
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
-
-    if (modulePermissions) {
-      return modulePermissions[module] ?? false;
-    }
+    if (modulePermissions) return modulePermissions[module] ?? false;
 
     const defaultPermissions: Record<AppRole, ModulePermissions> = {
       super_admin: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
@@ -287,7 +230,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       atendente: { alunos: true, turmas: false, presenca: false, crm: true, financeiro: true, cantina: true, eventos: false, graduacao: false, comunicacao: true, relatorios: false },
       aluno: { alunos: false, turmas: false, presenca: false, crm: false, financeiro: false, cantina: true, eventos: true, graduacao: false, comunicacao: true, relatorios: false },
     };
-
     return defaultPermissions[activeRole]?.[module] ?? false;
   }, [role, viewAsRole, modulePermissions]);
 
@@ -316,8 +258,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
