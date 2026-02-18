@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchLock = useRef<string | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string, activeViewAsRole: AppRole | null = null) => {
+  const fetchProfile = useCallback(async (userId: string, activeViewAsRole: AppRole | null = null, retries = 3): Promise<UserProfile | null> => {
     // Bloqueio para evitar chamadas duplicadas simultâneas
     if (fetchLock.current === userId) {
       console.log('[Auth] Busca em progresso, ignorando duplicada para:', userId);
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       fetchLock.current = userId;
-      console.log('[Auth] Iniciando busca robusta:', userId);
+      console.log('[Auth] Iniciando busca robusta (Tentativa:', 4 - retries, ') para:', userId);
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -76,16 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (profileError) {
-        console.error('[Auth] Erro busca perfil:', profileError.message);
-        return null;
-      }
+      if (profileError) throw profileError;
 
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
+
+      if (roleError) throw roleError;
 
       const userRole = roleData?.role as AppRole | undefined;
       const activeRole = activeViewAsRole || userRole;
@@ -104,12 +103,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return { ...profileData, role: userRole } as UserProfile;
-    } catch (error) {
-      console.error('[Auth] Abort ou Erro em fetchProfile:', error);
+    } catch (error: any) {
+      console.error(`[Auth] Erro em fetchProfile (${userId}):`, error.message || error);
+
+      // Se for AbortError e tiver tentativas, tenta de novo após um delay
+      if ((error.name === 'AbortError' || error.message?.includes('aborted')) && retries > 0) {
+        console.log('[Auth] Detectado AbortError, tentando novamente em 500ms...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        fetchLock.current = null; // Libera o lock para a tentativa
+        return fetchProfile(userId, activeViewAsRole, retries - 1);
+      }
+
       return null;
     } finally {
-      // Liberar o bloqueio após um pequeno delay para evitar "throttling"
-      setTimeout(() => { fetchLock.current = null; }, 1000);
+      fetchLock.current = null;
     }
   }, []);
 
@@ -125,12 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let initialized = false;
 
     const loadUserData = async (u: User, sess: Session) => {
       if (!mounted) return;
 
-      console.log('[Auth] Carregando perfil para usuário logado...');
+      console.log('[Auth] Carregando dados para:', u.email);
       setIsLoading(true);
+
       const profileData = await fetchProfile(u.id);
 
       if (mounted) {
@@ -139,27 +148,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(profileData.role || null);
           setSession(sess);
           setUser(u);
-          console.log('[Auth] Perfil estabelecido com sucesso');
+          console.log('[Auth] Perfil carregado com sucesso:', profileData.email);
         } else {
-          console.warn('[Auth] Falha ao carregar perfil (pode estar vazio ou erro)');
+          console.warn('[Auth] Perfil não retornado (limbo), definindo user básico');
+          setSession(sess);
+          setUser(u);
         }
         setIsLoading(false);
       }
     };
 
-    // Apenas uma fonte de verdade para a inicialização
-    supabase.auth.getSession().then(({ data: { session: initSession } }) => {
-      if (initSession?.user && mounted) {
-        loadUserData(initSession.user, initSession);
-      } else if (mounted) {
-        setIsLoading(false);
+    const checkInitialSession = async () => {
+      const { data: { session: initSession } } = await supabase.auth.getSession();
+      if (mounted && !initialized) {
+        if (initSession?.user) {
+          await loadUserData(initSession.user, initSession);
+        } else {
+          setIsLoading(false);
+        }
+        initialized = true;
       }
-    });
+    };
+
+    checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (!mounted) return;
-        console.log('[Auth] Alteração de estado:', event);
+        console.log('[Auth] Evento recebido:', event);
 
         if (currentSession?.user) {
           if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
@@ -168,11 +184,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(currentSession);
             setUser(currentSession.user);
           }
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setRole(null);
           setSession(null);
           setUser(null);
+          setViewAsRole(null);
+          setModulePermissions(null);
           setIsLoading(false);
         }
       }
@@ -252,29 +270,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
-    // Usar o papel simulado se existir, caso contrário o papel real
     const activeRole = viewAsRole || role;
 
     if (!activeRole) return false;
 
-    // Super admin real sempre tem acesso a tudo (independente do que está visualizando)
-    // MAS para propósitos de teste de interface, se ele estiver "assistindo" como Aluno, 
-    // ele deve ver apenas o que o Aluno vê se quisermos fidelidade TOTAL ao teste.
-    // O usuário pediu: "ver todas as funcionalidades que estão em cada perfil"
-    // Então aqui devemos aplicar as restrições do papel simulado.
-
-    // No entanto, se o papel real for super_admin e o usuário quiser voltar ao seletor, 
-    // precisamos garantir que os controles de admin não sumam se eles forem externos aos módulos.
-
-    // Se o papel visualizado for super_admin ou admin_ct, tem acesso total
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
 
-    // Se houver permissões específicas carregadas (para o papel ativo)
     if (modulePermissions) {
       return modulePermissions[module] ?? false;
     }
 
-    // Permissões padrão por papel
     const defaultPermissions: Record<AppRole, ModulePermissions> = {
       super_admin: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
       admin_ct: { alunos: true, turmas: true, presenca: true, crm: true, financeiro: true, cantina: true, eventos: true, graduacao: true, comunicacao: true, relatorios: true },
