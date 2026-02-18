@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* BJJ Belt Colors - Light Theme */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 5%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    
+    /* Azul - Primary Actions */
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Roxo - Strategic Highlights */
+    --secondary: 271 76% 53%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Marrom - Intermediate States */
+    --accent: 30 59% 35%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 217 91% 50%;
+    --radius: 0.75rem;
+    
+    /* BJJ Belt specific colors */
+    --belt-white: 0 0% 95%;
+    --belt-blue: 217 91% 50%;
+    --belt-purple: 271 76% 53%;
+    --belt-brown: 30 59% 35%;
+    --belt-black: 0 0% 10%;
+    
+    /* Success/Warning */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 5%;
+    --sidebar-primary: 217 91% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 76% 53%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 217 91% 50%;
+  }
+
+  .dark {
+    /* BJJ Belt Colors - Dark Theme (Default) */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Azul - Primary Actions */
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Roxo - Strategic Highlights */
+    --secondary: 271 76% 60%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Marrom - Intermediate States */
+    --accent: 30 59% 45%;
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+    
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 217 91% 55%;
+    
+    /* BJJ Belt specific colors */
+    --belt-white: 0 0% 95%;
+    --belt-blue: 217 91% 55%;
+    --belt-purple: 271 76% 60%;
+    --belt-brown: 30 59% 45%;
+    --belt-black: 0 0% 10%;
+    
+    /* Success/Warning */
+    --success: 142 76% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+    
+    /* Sidebar */
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 217 91% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 76% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 217 91% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar for dark theme */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: hsl(0 0% 10%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 30%);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 40%);
+}
+
+/* Presence button gradient */
+.btn-presence {
+  background: linear-gradient(135deg, hsl(217 91% 55%), hsl(271 76% 60%));
+  transition: all 0.3s ease;
+}
+
+.btn-presence:hover {
+  background: linear-gradient(135deg, hsl(217 91% 60%), hsl(271 76% 65%));
+  transform: scale(1.05);
+}
+
+/* Belt color badges */
+.belt-white { background-color: hsl(0 0% 95%); color: hsl(0 0% 10%); }
+.belt-blue { background-color: hsl(217 91% 55%); color: white; }
+.belt-purple { background-color: hsl(271 76% 60%); color: white; }
+.belt-brown { background-color: hsl(30 59% 45%); color: white; }
+.belt-black { background-color: hsl(0 0% 10%); color: white; }
+
+/* Premium UI Utilities */
+@layer utilities {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+  
+  .neon {
+    box-shadow: 0 0 15px hsla(var(--primary), 0.3);
+  }
+  
+  .shadow-premium {
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  }
+  
+  .shadow-premium-hover {
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px hsla(var(--primary), 0.5);
+  }
+}
+
+.animate-in {
+  animation: animate-in 0.7s ease-out;
+}
+
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

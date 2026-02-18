@@ -3,7 +3,7 @@ Projeto BjjOSS No Antigravity,
 Abaixo estao as informaçoes de BD.
 
 BD Supabase que esta na conta omd.vandersonoliveira@gmail.com
-Senha Bjj2026#Oss
+
 
 Project URL = https://nczyfslurnepzrwirfir.supabase.co
 
@@ -15,4 +15,4 @@ service_role = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJl
 
 postgresql://postgres:Bjj2026#Oss@db.nczyfslurnepzrwirfir.supabase.co:5432/postgres
 
-postgresql://postgres:[YOUR-PASSWORD]@db.nczyfslurnepzrwirfir.supabase.co:5432/postgres
+postgresql://postgres:[YOUR-PASSWORD]@db.nczyfslurnepzrwirfir.supabase.co:5432/postgresSenha Bjj2026#Oss

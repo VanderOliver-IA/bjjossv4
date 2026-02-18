@@ -27,6 +27,9 @@ import GlobalLogs from "./pages/GlobalLogs";
 import CaixaDia from "./pages/CaixaDia";
 import NotasPessoais from "./pages/NotasPessoais";
 import MainLayout from "./components/layouts/MainLayout";
+import LandingA from "./pages/landing/LandingA";
+import LandingB from "./pages/landing/LandingB";
+import LandingC from "./pages/landing/LandingC";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +44,11 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Login />} />
+
+              {/* Landing Pages (Public) */}
+              <Route path="/vendas/dojo-digital" element={<LandingA />} />
+              <Route path="/vendas/gestao-pro" element={<LandingB />} />
+              <Route path="/vendas/comunidade" element={<LandingC />} />
               <Route element={<MainLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/alunos" element={<Alunos />} />
