@@ -51,54 +51,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // 1. O CORAÇÃO DA SOLUÇÃO: TanStack Query para carregar o perfil
-  // Remove 100% da necessidade de useEffects manuais e evita AbortError automaticamente
-  const { data: profileData, isLoading: isProfileLoading, refetch } = useQuery({
+  // 1. Detecção Instantânea de Role via Metadados (Opção B - Ultra Resiliente)
+  // Isso evita esperar a query do banco para saber qual Dashboard abrir
+  const metadataRole = user?.app_metadata?.role as AppRole | undefined;
+
+  // 2. Query de Perfil (Agora em segundo plano, não bloqueia o app)
+  const { data: profileQueryData, isLoading: isProfileLoading, refetch } = useQuery({
     queryKey: ['userProfile', user?.id, viewAsRole],
     queryFn: async () => {
       if (!user?.id) return null;
-      console.log('[AuthQuery] Buscando perfil para:', user.id);
+      console.log('[AuthContext] Buscando perfil completo...');
 
-      // Buscar Perfil
-      const { data: profile, error: pErr } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (pErr) throw pErr;
-
-      // Buscar Role
-      const { data: roleRec } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const userRole = roleRec?.role as AppRole;
-      return { ...profile, role: userRole } as UserProfile;
+      if (error) {
+        console.warn('[AuthContext] Erro ao carregar perfil extra (DB 500?), usando fallback');
+        return { id: user.id, email: user.email, name: user.user_metadata?.name || 'Usuário' } as UserProfile;
+      }
+      return data as UserProfile;
     },
-    enabled: !!user?.id, // Só roda se tiver usuário logado
-    staleTime: 1000 * 60 * 5, // Cache por 5 minutos
-    retry: 2
+    enabled: !!user?.id,
+    retry: 1
   });
 
-  // 2. Listener de Sessão do Supabase (Minimalista)
   useEffect(() => {
-    // Pegar sessão inicial
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      console.log('[Auth] Inicializando sessão...');
       setSession(s);
       setUser(s?.user ?? null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      console.log('[Auth] Evento Supabase:', event);
       setSession(s);
       setUser(s?.user ?? null);
-
       if (event === 'SIGNED_OUT') {
-        queryClient.clear(); // Limpa todo o cache no logout
+        queryClient.clear();
         setViewAsRole(null);
       }
     });
@@ -120,11 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
-    const activeRole = viewAsRole || profileData?.role;
+    // Usamos o role do metadado como fonte primária ultra-rápida
+    const activeRole = viewAsRole || metadataRole;
     if (!activeRole) return false;
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
 
-    // Fallback para permissões simples baseadas no role
     const rolesWithAccess: Record<AppRole, (keyof ModulePermissions)[]> = {
       super_admin: ['alunos', 'turmas', 'presenca', 'crm', 'financeiro', 'cantina', 'eventos', 'graduacao', 'comunicacao', 'relatorios'],
       admin_ct: ['alunos', 'turmas', 'presenca', 'crm', 'financeiro', 'cantina', 'eventos', 'graduacao', 'comunicacao', 'relatorios'],
@@ -134,18 +124,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return rolesWithAccess[activeRole]?.includes(module) ?? false;
-  }, [viewAsRole, profileData]);
+  }, [viewAsRole, metadataRole]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         session,
-        profile: profileData || null,
-        role: profileData?.role || null,
+        profile: profileQueryData || null,
+        role: metadataRole || null, // Role vem instantaneamente do login!
         viewAsRole,
         isAuthenticated: !!user,
-        isLoading: isProfileLoading && !!user, // Só mostra carregando se tiver usuário mas o perfil ainda não chegou
+        // O app NUNCA fica travado se tivermos o user e o role no metadado
+        isLoading: !!user && !metadataRole,
         login,
         logout,
         hasModuleAccess,
