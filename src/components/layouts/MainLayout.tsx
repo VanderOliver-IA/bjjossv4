@@ -10,7 +10,7 @@ import { TrialBanner } from '@/components/layouts/TrialBanner';
 const MainLayout = () => {
   const { isAuthenticated, user, whatsappVerified, viewAsRole, setViewAsRole } = useAuth();
 
-  const isDemo = user?.email?.includes('demo');
+  const isDemo = user?.email ? user.email.includes('demo') : false;
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;

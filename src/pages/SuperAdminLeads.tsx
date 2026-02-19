@@ -194,7 +194,7 @@ export default function SuperAdminLeads() {
     const filteredLeads = leads.filter(l =>
         l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.whatsapp.includes(searchTerm)
+        (l.whatsapp && l.whatsapp.includes(searchTerm))
     );
 
     return (

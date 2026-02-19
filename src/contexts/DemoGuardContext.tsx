@@ -19,10 +19,10 @@ export function DemoGuardProvider({ children }: { children: React.ReactNode }) {
     const [demoStartTime] = useState(Date.now());
 
     // Demo mode = logged in with demo credentials (email contains 'demo')
-    const isDemoMode = !!user?.email?.includes('demo');
+    const isDemoMode = user?.email ? user.email.includes('demo') : false;
 
     const guardAction = useCallback((action: () => void, moduleName?: string) => {
-        if (moduleName && !modulesAccessed.includes(moduleName)) {
+        if (moduleName && modulesAccessed && !modulesAccessed.includes(moduleName)) {
             setModulesAccessed(prev => [...prev, moduleName]);
         }
 

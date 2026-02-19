@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && user.email?.includes('demo')) {
+    if (user && user.email && user.email.includes('demo')) {
       const existing = localStorage.getItem('bjjoss_demo_session');
       if (existing) setDemoSessionId(existing);
       else {
