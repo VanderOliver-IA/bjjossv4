@@ -23,6 +23,7 @@ import { Plus, Search, Filter, Eye, Edit, MoreHorizontal, QrCode } from 'lucide-
 import QRCodeDialog from '@/components/students/QRCodeDialog';
 import { mockStudents } from '@/data/mockData';
 import { Student, BeltType } from '@/types';
+import { AddStudentDialog } from '@/components/students/AddStudentDialog';
 
 const Alunos = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,10 +56,7 @@ const Alunos = () => {
           <h1 className="text-3xl font-bold">Alunos</h1>
           <p className="text-muted-foreground">Gerencie os alunos do CT</p>
         </div>
-        <Button className="btn-presence text-white">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Aluno
-        </Button>
+        <AddStudentDialog />
       </div>
 
       {/* Stats Cards */}

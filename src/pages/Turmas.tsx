@@ -12,6 +12,7 @@ import {
 import { Plus, Users, Clock, Calendar, ChevronRight } from 'lucide-react';
 import { mockClasses, mockStudents } from '@/data/mockData';
 import { TrainingClass } from '@/types';
+import { AddClassDialog } from '@/components/classes/AddClassDialog';
 
 const Turmas = () => {
   const [selectedClass, setSelectedClass] = useState<TrainingClass | null>(null);
@@ -30,10 +31,7 @@ const Turmas = () => {
           <h1 className="text-3xl font-bold">Turmas</h1>
           <p className="text-muted-foreground">Gerencie as turmas e horários</p>
         </div>
-        <Button className="btn-presence text-white">
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Turma
-        </Button>
+        <AddClassDialog />
       </div>
 
       {/* Stats */}
