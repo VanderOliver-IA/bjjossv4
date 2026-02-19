@@ -130,7 +130,7 @@ const Configuracoes = () => {
           <h1 className="text-3xl font-bold">Configurações</h1>
           <p className="text-muted-foreground">Gerencie as configurações do seu tatame</p>
         </div>
-        {(role === 'admin_ct' || role === 'professor' || role === 'super_admin') && (
+        {(role === 'admin_ct' || role === 'professor') && (
           <SupportRequestDialog />
         )}
       </div>
