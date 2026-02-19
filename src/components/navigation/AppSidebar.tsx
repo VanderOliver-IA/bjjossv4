@@ -13,7 +13,8 @@ import {
     ShieldCheck,
     LayoutDashboard,
     Eye,
-    LogOut
+    LogOut,
+    Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,22 +42,28 @@ const AppSidebar = () => {
     ];
 
     const menuItems = [
-        { id: 'dashboard', label: 'Painel', icon: LayoutDashboard, path: '/dashboard', access: true },
-        { id: 'alunos', label: 'Alunos', icon: Users, path: '/alunos', access: hasModuleAccess('alunos') },
-        { id: 'turmas', label: 'Turmas', icon: Calendar, path: '/turmas', access: hasModuleAccess('turmas') },
-        { id: 'presenca', label: 'Presença', icon: ShieldCheck, path: '/presenca', access: hasModuleAccess('presenca') },
-        { id: 'financeiro', label: 'Financeiro', icon: Wallet, path: '/financeiro', access: hasModuleAccess('financeiro') },
-        { id: 'cantina', label: 'Cantina', icon: Coffee, path: '/cantina', access: hasModuleAccess('cantina') },
-        { id: 'crm', label: 'CRM', icon: BarChart3, path: '/crm', access: hasModuleAccess('crm') },
-        { id: 'eventos', label: 'Eventos', icon: Calendar, path: '/eventos', access: hasModuleAccess('eventos') },
-        { id: 'graduacao', label: 'Graduação', icon: GraduationCap, path: '/graduacao', access: hasModuleAccess('graduacao') },
-        { id: 'comunicacao', label: 'Comunicação', icon: MessageSquare, path: '/comunicacao', access: hasModuleAccess('comunicacao') },
-        { id: 'permissoes', label: 'Controle de Acessos', icon: ShieldCheck, path: '/configuracoes/permissoes', access: activeRole === 'admin_ct' || activeRole === 'super_admin' },
+        // Itens de Gestão GLOBAL (Apenas Super Admin)
+        { id: 'saas_dashboard', label: 'Visão Geral BjjOss', icon: BarChart3, path: '/dashboard', access: activeRole === 'super_admin' },
+        { id: 'cts', label: 'Academia & Professores', icon: Building2, path: '/cts', access: activeRole === 'super_admin' },
+        { id: 'leads_saas', label: 'Leads BjjOss', icon: MessageSquare, path: '/crm-saas', access: activeRole === 'super_admin' },
+
+        // Itens Operacionais (CT / Professor) - Escondidos do Super Admin a menos que esteja simulando
+        { id: 'dashboard', label: 'Painel CT', icon: LayoutDashboard, path: '/dashboard', access: activeRole !== 'super_admin' },
+        { id: 'alunos', label: 'Alunos', icon: Users, path: '/alunos', access: activeRole !== 'super_admin' && hasModuleAccess('alunos') },
+        { id: 'turmas', label: 'Turmas', icon: Calendar, path: '/turmas', access: activeRole !== 'super_admin' && hasModuleAccess('turmas') },
+        { id: 'presenca', label: 'Presença', icon: ShieldCheck, path: '/presenca', access: activeRole !== 'super_admin' && hasModuleAccess('presenca') },
+        { id: 'financeiro', label: 'Financeiro', icon: Wallet, path: '/financeiro', access: activeRole !== 'super_admin' && hasModuleAccess('financeiro') },
+        { id: 'cantina', label: 'Cantina', icon: Coffee, path: '/cantina', access: activeRole !== 'super_admin' && hasModuleAccess('cantina') },
+        { id: 'crm', label: 'CRM Alunos', icon: BarChart3, path: '/crm', access: activeRole !== 'super_admin' && hasModuleAccess('crm') },
+        { id: 'eventos', label: 'Eventos', icon: Calendar, path: '/eventos', access: activeRole !== 'super_admin' && hasModuleAccess('eventos') },
+        { id: 'graduacao', label: 'Graduação', icon: GraduationCap, path: '/graduacao', access: activeRole !== 'super_admin' && hasModuleAccess('graduacao') },
+        { id: 'comunicacao', label: 'Comunicação', icon: MessageSquare, path: '/comunicacao', access: activeRole !== 'super_admin' && hasModuleAccess('comunicacao') },
+
+        { id: 'configuracoes', label: 'Configurações', icon: Settings, path: '/configuracoes', access: true },
     ];
 
     if (activeRole === 'super_admin') {
-        menuItems.push({ id: 'feature-flags', label: 'Feature Flags', icon: Settings, path: '/feature-flags', access: true });
-        menuItems.push({ id: 'cts', label: 'Gerenciar CTs', icon: ShieldCheck, path: '/cts', access: true });
+        menuItems.push({ id: 'feature-flags', label: 'Configurações Beta', icon: Settings, path: '/feature-flags', access: true });
     }
 
     return (

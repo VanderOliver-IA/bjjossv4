@@ -8,10 +8,16 @@ import { Button } from '@/components/ui/button';
 import { TrialBanner } from '@/components/layouts/TrialBanner';
 
 const MainLayout = () => {
-  const { isAuthenticated, viewAsRole, setViewAsRole } = useAuth();
+  const { isAuthenticated, user, whatsappVerified, viewAsRole, setViewAsRole } = useAuth();
+
+  const isDemo = user?.email?.includes('demo');
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  if (isAuthenticated && !isDemo && !whatsappVerified) {
+    return <Navigate to={`/verificar-whatsapp?email=${user?.email}&whatsapp=${user?.user_metadata?.whatsapp || ''}`} replace />;
   }
 
   return (

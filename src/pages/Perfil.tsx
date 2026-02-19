@@ -1,376 +1,221 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
-import { 
-  User, 
-  Camera, 
-  Calendar, 
-  Award, 
-  TrendingUp, 
-  CreditCard,
-  Trophy,
-  Medal,
-  Shield
+import { useToast } from '@/hooks/use-toast';
+import {
+  User,
+  Mail,
+  Smartphone,
+  Shield,
+  Save,
+  Loader2,
+  Camera,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import ReportChart from '@/components/reports/ReportChart';
+import { Badge } from '@/components/ui/badge';
 
-const beltLabels: Record<string, string> = {
-  branca: 'Branca',
-  azul: 'Azul',
-  roxa: 'Roxa',
-  marrom: 'Marrom',
-  preta: 'Preta',
-};
+export default function Perfil() {
+  const { user, profile, refreshProfile } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    whatsapp: '',
+  });
 
-const beltColors: Record<string, string> = {
-  branca: 'bg-white text-black border',
-  azul: 'bg-bjj-azul text-white',
-  roxa: 'bg-bjj-roxo text-white',
-  marrom: 'bg-bjj-marrom text-white',
-  preta: 'bg-black text-white',
-};
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        name: profile.name || '',
+        email: profile.email || '',
+        whatsapp: profile.whatsapp || '',
+      });
+    }
+  }, [profile]);
 
-const mockStudentData = {
-  belt: 'azul',
-  stripes: 2,
-  startDate: '2022-03-15',
-  totalPresences: 245,
-  lastPresence: '2024-01-20',
-  federated: true,
-  competitions: [
-    { name: 'Campeonato Estadual 2023', result: 'Ouro', category: 'Adulto Azul Médio' },
-    { name: 'Copa Regional 2023', result: 'Prata', category: 'Adulto Azul Médio' },
-  ],
-  medals: { gold: 3, silver: 2, bronze: 1 },
-  upcomingEvents: [
-    { name: 'Campeonato Nacional 2024', date: '2024-03-15' },
-    { name: 'Cerimônia de Graduação', date: '2024-02-28' },
-  ],
-};
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id) return;
 
-const presenceData = [
-  { name: 'Jan', value: 18 },
-  { name: 'Fev', value: 22 },
-  { name: 'Mar', value: 20 },
-  { name: 'Abr', value: 25 },
-  { name: 'Mai', value: 23 },
-  { name: 'Jun', value: 28 },
-];
+    setLoading(true);
+    console.log('[Perfil] Tentando salvar:', formData);
 
-const Perfil = () => {
-  const { profile, role } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
+    try {
+      // 1. Atualizar Profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: formData.name,
+          whatsapp: formData.whatsapp,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-  const isStudent = role === 'aluno';
+      if (profileError) throw profileError;
+
+      // 2. Atualizar Auth Metadata (para consistência)
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          full_name: formData.name,
+          whatsapp: formData.whatsapp
+        }
+      });
+
+      if (authError) throw authError;
+
+      toast({
+        title: "✅ Sucesso!",
+        description: "Seus dados foram atualizados com sucesso.",
+      });
+
+      refreshProfile();
+    } catch (err: any) {
+      console.error('[Perfil] Erro ao salvar:', err);
+      toast({
+        variant: "destructive",
+        title: "❌ Erro ao salvar",
+        description: err.message || "Ocorreu um erro inesperado.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Meu Perfil</h1>
-          <p className="text-muted-foreground">Gerencie suas informações pessoais</p>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-center gap-6 bg-[#0f172a] p-8 rounded-[40px] border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl" />
+
+        <div className="relative group">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center font-black text-3xl italic border-4 border-[#0f172a] shadow-xl">
+            {formData.name.charAt(0)}
+          </div>
+          <button className="absolute -bottom-2 -right-2 bg-blue-600 p-2 rounded-xl border-2 border-[#0f172a] hover:scale-110 transition-transform shadow-lg">
+            <Camera className="w-4 h-4" />
+          </button>
         </div>
-        <Button 
-          variant={isEditing ? 'default' : 'outline'}
-          onClick={() => setIsEditing(!isEditing)}
-        >
-          {isEditing ? 'Salvar Alterações' : 'Editar Perfil'}
-        </Button>
+
+        <div className="flex-1 text-center md:text-left space-y-1">
+          <h1 className="text-3xl font-black tracking-tighter italic uppercase">{formData.name || 'Seu Nome'}</h1>
+          <div className="flex flex-wrap justify-center md:justify-start gap-2">
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 font-bold uppercase text-[10px]">
+              {profile?.role?.replace('_', ' ') || 'Carregando...'}
+            </Badge>
+            <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 font-bold uppercase text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> WhatsApp Verificado
+            </Badge>
+          </div>
+        </div>
       </div>
 
-      {/* Profile Header */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center">
-                <User className="h-16 w-16 text-muted-foreground" />
-              </div>
-              {isEditing && (
-                <Button 
-                  size="icon" 
-                  className="absolute bottom-0 right-0 rounded-full"
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl font-bold">{profile?.name || 'Usuário'}</h2>
-              <p className="text-muted-foreground">{profile?.email}</p>
-              {isStudent && (
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
-                  <Badge className={beltColors[mockStudentData.belt]}>
-                    Faixa {beltLabels[mockStudentData.belt]}
-                  </Badge>
-                  <Badge variant="outline">
-                    {mockStudentData.stripes} grau{mockStudentData.stripes !== 1 ? 's' : ''}
-                  </Badge>
-                  {mockStudentData.federated && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Shield className="h-3 w-3" />
-                      Federado
-                    </Badge>
-                  )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Main Form */}
+        <Card className="md:col-span-2 bg-[#0f172a] border-slate-800 rounded-[32px] overflow-hidden shadow-2xl">
+          <CardHeader className="border-b border-slate-800/50 pb-6 px-8 pt-8">
+            <CardTitle className="text-xl font-black italic uppercase tracking-tight">Dados Pessoais</CardTitle>
+            <CardDescription className="text-slate-500 font-medium">Mantenha suas informações de contato atualizadas</CardDescription>
+          </CardHeader>
+          <CardContent className="p-8">
+            <form onSubmit={handleSave} className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-slate-400 font-black uppercase text-[10px] tracking-widest ml-1">Nome Completo</Label>
+                <div className="relative">
+                  <Input
+                    value={formData.name}
+                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="bg-[#1e293b] border-slate-800 h-14 rounded-2xl pl-12 focus:border-blue-500/50"
+                  />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
 
-      <Tabs defaultValue="info">
-        <TabsList>
-          <TabsTrigger value="info">Informações</TabsTrigger>
-          {isStudent && (
-            <>
-              <TabsTrigger value="stats">Estatísticas</TabsTrigger>
-              <TabsTrigger value="competitions">Competições</TabsTrigger>
-              <TabsTrigger value="history">Histórico</TabsTrigger>
-            </>
-          )}
-        </TabsList>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-slate-400 font-black uppercase text-[10px] tracking-widest ml-1">Email (Somente leitura)</Label>
+                  <div className="relative opacity-50">
+                    <Input
+                      value={formData.email}
+                      disabled
+                      className="bg-[#1e293b] border-slate-800 h-14 rounded-2xl pl-12 cursor-not-allowed"
+                    />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                  </div>
+                </div>
 
-        <TabsContent value="info" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dados Pessoais</CardTitle>
+                <div className="space-y-2">
+                  <Label className="text-slate-400 font-black uppercase text-[10px] tracking-widest ml-1">WhatsApp</Label>
+                  <div className="relative">
+                    <Input
+                      value={formData.whatsapp}
+                      onChange={e => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+                      className="bg-[#1e293b] border-slate-800 h-14 rounded-2xl pl-12 focus:border-blue-500/50"
+                    />
+                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full md:w-auto h-14 bg-blue-600 hover:bg-blue-500 rounded-2xl px-12 font-black italic tracking-tight shadow-xl shadow-blue-500/20 gap-2 transition-all active:scale-95"
+              >
+                {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    SALVAR ALTERAÇÕES
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Security / Info Sidebar */}
+        <div className="space-y-6">
+          <Card className="bg-[#0f172a] border-slate-800 rounded-[32px] overflow-hidden shadow-2xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-500" />
+                Segurança
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Nome Completo</Label>
-                  <Input 
-                    value={profile?.name || ''} 
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input 
-                    value={profile?.email || ''} 
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div>
-                  <Label>Telefone</Label>
-                  <Input 
-                    value={profile?.phone || ''} 
-                    placeholder="(00) 00000-0000"
-                    disabled={!isEditing}
-                  />
-                </div>
-                <div>
-                  <Label>Data de Nascimento</Label>
-                  <Input 
-                    type="date"
-                    disabled={!isEditing}
-                  />
+              <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-800">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status da Conta</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <p className="text-sm font-bold">Ativa e Verificada</p>
                 </div>
               </div>
-              
-              {isStudent && (
-                <>
-                  <div className="pt-4 border-t">
-                    <h3 className="font-medium mb-4">Informações do Jiu-Jitsu</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Data de Início no Jiu-Jitsu</Label>
-                        <Input 
-                          type="date"
-                          value={mockStudentData.startDate}
-                          disabled={!isEditing}
-                        />
-                      </div>
-                      <div>
-                        <Label>CT Anterior</Label>
-                        <Input 
-                          placeholder="Informe se treinou em outro CT"
-                          disabled={!isEditing}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+              <Button variant="outline" className="w-full border-slate-800 h-10 rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors">
+                Alterar Senha
+              </Button>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {isStudent && (
-          <>
-            <TabsContent value="stats" className="mt-6 space-y-6">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary" />
-                      Total de Presenças
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockStudentData.totalPresences}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-bjj-azul" />
-                      Média Mensal
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">22</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Award className="h-4 w-4 text-bjj-roxo" />
-                      Tempo de Faixa
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">14 meses</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-yellow-500" />
-                      Medalhas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockStudentData.medals.gold + mockStudentData.medals.silver + mockStudentData.medals.bronze}</div>
-                  </CardContent>
-                </Card>
+          <Card className="bg-blue-600/5 border-blue-500/20 rounded-[32px] overflow-hidden shadow-2xl p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500">
+                <AlertCircle className="w-5 h-5" />
               </div>
-
-              {/* Presence Chart */}
-              <ReportChart title="Evolução de Presenças" data={presenceData} defaultType="line" />
-            </TabsContent>
-
-            <TabsContent value="competitions" className="mt-6 space-y-6">
-              {/* Medal Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
-                    Medalhas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-around">
-                    <div className="text-center">
-                      <Medal className="h-12 w-12 mx-auto text-yellow-500" />
-                      <p className="text-2xl font-bold mt-2">{mockStudentData.medals.gold}</p>
-                      <p className="text-sm text-muted-foreground">Ouro</p>
-                    </div>
-                    <div className="text-center">
-                      <Medal className="h-12 w-12 mx-auto text-gray-400" />
-                      <p className="text-2xl font-bold mt-2">{mockStudentData.medals.silver}</p>
-                      <p className="text-sm text-muted-foreground">Prata</p>
-                    </div>
-                    <div className="text-center">
-                      <Medal className="h-12 w-12 mx-auto text-amber-700" />
-                      <p className="text-2xl font-bold mt-2">{mockStudentData.medals.bronze}</p>
-                      <p className="text-sm text-muted-foreground">Bronze</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Competition History */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Competições</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockStudentData.competitions.map((comp, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium">{comp.name}</p>
-                          <p className="text-sm text-muted-foreground">{comp.category}</p>
-                        </div>
-                        <Badge className={comp.result === 'Ouro' ? 'bg-yellow-500' : comp.result === 'Prata' ? 'bg-gray-400' : 'bg-amber-700'}>
-                          {comp.result}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Upcoming */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Próximas Competições</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockStudentData.upcomingEvents.map((event, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium">{event.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(event.date).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm">Inscrever-se</Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="history" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    Histórico de Graduações
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-4">
-                        <Badge className={beltColors['azul']}>Azul</Badge>
-                        <div>
-                          <p className="font-medium">Faixa Branca → Azul</p>
-                          <p className="text-sm text-muted-foreground">Cerimônia de Graduação 2023</p>
-                        </div>
-                      </div>
-                      <span className="text-sm text-muted-foreground">15/06/2023</span>
-                    </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-4">
-                        <Badge className={beltColors['branca']}>Branca</Badge>
-                        <div>
-                          <p className="font-medium">4° Grau</p>
-                          <p className="text-sm text-muted-foreground">Avaliação Trimestral</p>
-                        </div>
-                      </div>
-                      <span className="text-sm text-muted-foreground">20/03/2023</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </>
-        )}
-      </Tabs>
+              <div className="space-y-1">
+                <p className="text-xs font-black uppercase tracking-widest text-blue-400">Dica de Gestão</p>
+                <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                  Sincronizar seu WhatsApp garante que o sistema possa te enviar alertas críticos e notificações financeiras em tempo real.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Perfil;
+}

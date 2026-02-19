@@ -11,14 +11,30 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [notFound, setNotFound] = useState(false);
     const navigate = useNavigate();
     const { toast } = useToast();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setNotFound(false);
 
         try {
+            // 1. Verificar se o email existe na tabela profiles (seguro para o front)
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (!profile) {
+                setNotFound(true);
+                setLoading(false);
+                return;
+            }
+
+            // 2. Login real para usuários existentes
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -28,9 +44,7 @@ export default function Login() {
                 toast({
                     variant: "destructive",
                     title: "Erro no acesso",
-                    description: error.message === "Invalid login credentials"
-                        ? "Email ou senha incorretos."
-                        : error.message,
+                    description: "Senha incorreta ou erro de rede.",
                 });
                 return;
             }
@@ -61,14 +75,36 @@ export default function Login() {
                             Bjj<span className="text-blue-500">Oss</span>
                         </h1>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-300">Acesse sua conta</h2>
-                    <p className="text-slate-500 text-sm">
-                        Ainda não tem conta? <Link to="/cadastro" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">Comece Grátis</Link>
-                    </p>
                 </div>
 
-                {/* Form */}
-                <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
+                {/* Form Wrapper */}
+                <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 relative overflow-hidden">
+
+                    {/* Overlay para Cadastro se o usuário não for encontrado */}
+                    {notFound && (
+                        <div className="absolute inset-0 bg-blue-600/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-300">
+                            <h3 className="text-2xl font-bold mb-3">CONTA NÃO ENCONTRADA</h3>
+                            <p className="text-blue-100 mb-8 leading-relaxed">
+                                Este email não está cadastrado em nosso sistema. Deseja criar sua conta trial de 7 dias agora?
+                            </p>
+                            <div className="flex flex-col w-full gap-4">
+                                <Button
+                                    onClick={() => navigate(`/cadastro?email=${email}`)}
+                                    className="bg-white text-blue-600 hover:bg-slate-100 font-black h-14 rounded-2xl text-lg"
+                                >
+                                    SIM, CRIAR MEU ACESSO
+                                </Button>
+                                <Button
+                                    onClick={() => setNotFound(false)}
+                                    variant="ghost"
+                                    className="text-white hover:bg-white/10 h-12 underline"
+                                >
+                                    Tentar outro email
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="email" className="text-slate-400">Email</Label>
@@ -76,7 +112,7 @@ export default function Login() {
                                 id="email"
                                 type="email"
                                 placeholder="mestre@jiujitsu.com"
-                                className="bg-[#1e293b] border-slate-700 text-white focus:border-blue-500 transition-colors h-12"
+                                className="bg-[#1e293b] border-slate-700 h-12 rounded-xl"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -84,33 +120,33 @@ export default function Login() {
                         </div>
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                                <Label htmlFor="password" className="text-slate-400">Senha</Label>
+                                <Label htmlFor="password" disabled={notFound} className="text-slate-400">Senha</Label>
                                 <Link to="/esqueceu-senha" className="text-xs text-blue-500 hover:text-blue-400">Esqueceu?</Link>
                             </div>
                             <Input
                                 id="password"
                                 type="password"
                                 placeholder="******"
-                                className="bg-[#1e293b] border-slate-700 text-white focus:border-blue-500 transition-colors h-12"
+                                className="bg-[#1e293b] border-slate-700 h-12 rounded-xl"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                             />
                         </div>
 
-                        <Button type="submit" className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 transition-all rounded-xl mt-4" disabled={loading}>
-                            {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Entrar no Sistema"}
+                        <Button type="submit" className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-500 rounded-2xl mt-4 shadow-lg shadow-blue-900/40" disabled={loading}>
+                            {loading ? <Loader2 className="animate-spin" /> : "ENTRAR NO SISTEMA"}
                         </Button>
                     </form>
 
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-700" /></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#0f172a] px-2 text-slate-500">Ou</span></div>
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-800" /></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#0f172a] px-2 text-slate-500 font-bold">Ou explore sem cadastro</span></div>
                     </div>
 
                     <Link to="/logindemo">
-                        <Button variant="outline" className="w-full h-12 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white rounded-xl bg-transparent">
-                            Acessar Ambiente de Demo
+                        <Button variant="outline" className="w-full h-12 border-slate-700 text-slate-400 hover:bg-slate-800 rounded-xl bg-transparent transition-all">
+                            Acessar Ambiente de Demonstração
                         </Button>
                     </Link>
                 </div>

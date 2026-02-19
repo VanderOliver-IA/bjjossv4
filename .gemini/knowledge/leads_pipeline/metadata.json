@@ -1,0 +1,18 @@
+{
+    "title": "Pipeline de Geração de Leads e Verificação WhatsApp",
+    "summary": "Documentação completa do sistema de captura de leads via modo demo, verificação mandatória por WhatsApp (OTP) e integração com N8N/Evolution API.",
+    "created_at": "2026-02-18T23:15:00Z",
+    "tags": [
+        "saas",
+        "leads",
+        "whatsapp",
+        "supabase",
+        "n8n",
+        "verification"
+    ],
+    "artifacts": [
+        "architecture.md",
+        "database_schema.md",
+        "frontend_flow.md"
+    ]
+}

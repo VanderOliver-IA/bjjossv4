@@ -25,6 +25,8 @@ export interface UserProfile {
   email: string;
   ct_id?: string;
   role?: AppRole;
+  whatsapp?: string;
+  whatsapp_verified?: boolean;
 }
 
 interface AuthContextType {
@@ -33,6 +35,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   role: AppRole | null;
   viewAsRole: AppRole | null;
+  viewAsCT: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -40,6 +43,9 @@ interface AuthContextType {
   hasModuleAccess: (module: keyof ModulePermissions) => boolean;
   refreshProfile: () => void;
   setViewAsRole: (role: AppRole | null) => void;
+  setViewAsCT: (ctId: string | null) => Promise<void>;
+  demoSessionId: string | null;
+  whatsappVerified: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,30 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [viewAsRole, setViewAsRole] = useState<AppRole | null>(null);
+  const [viewAsCT, setViewAsCT] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // 1. Detecção Instantânea de Role via Metadados (Opção B - Ultra Resiliente)
-  // Isso evita esperar a query do banco para saber qual Dashboard abrir
   const metadataRole = user?.app_metadata?.role as AppRole | undefined;
 
-  // 2. Query de Perfil (Agora em segundo plano, não bloqueia o app)
   const { data: profileQueryData, isLoading: isProfileLoading, refetch } = useQuery({
-    queryKey: ['userProfile', user?.id, viewAsRole],
+    queryKey: ['userProfile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      console.log('[AuthContext] Buscando perfil completo...');
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.warn('[AuthContext] Erro ao carregar perfil extra (DB 500?), usando fallback');
-        return { id: user.id, email: user.email, name: user.user_metadata?.name || 'Usuário' } as UserProfile;
-      }
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      if (error) return { id: user.id, email: user.email, name: user.user_metadata?.name || 'Usuário' } as UserProfile;
       return data as UserProfile;
     },
     enabled: !!user?.id,
@@ -82,6 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
+      if (s?.user?.user_metadata?.view_as_ct) {
+        setViewAsCT(s.user.user_metadata.view_as_ct);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
@@ -90,11 +87,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
         setViewAsRole(null);
+        setViewAsCT(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [queryClient]);
+
+  const setViewAsCTProxy = async (ctId: string | null) => {
+    setViewAsCT(ctId);
+    // CRÍTICO: Atualiza metadado do Auth para as RLS de Super Admin funcionarem
+    // pois as RLS lêem direto do JWT (User Metadata)
+    if (user) {
+      await supabase.auth.updateUser({
+        data: { view_as_ct: ctId }
+      });
+      toast({ title: ctId ? 'Modo Suporte Ativado' : 'Acesso Global Ativado', description: 'Visão do sistema atualizada.' });
+    }
+  };
+
+  const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && user.email?.includes('demo')) {
+      const existing = localStorage.getItem('bjjoss_demo_session');
+      if (existing) setDemoSessionId(existing);
+      else {
+        const newId = crypto.randomUUID();
+        localStorage.setItem('bjjoss_demo_session', newId);
+        setDemoSessionId(newId);
+      }
+    }
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -106,11 +130,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    if (demoSessionId) {
+      await supabase.rpc('cleanup_demo_session', { session_id: demoSessionId });
+      localStorage.removeItem('bjjoss_demo_session');
+    }
     await supabase.auth.signOut();
+    queryClient.clear();
   };
 
   const hasModuleAccess = useCallback((module: keyof ModulePermissions): boolean => {
-    // Usamos o role do metadado como fonte primária ultra-rápida
     const activeRole = viewAsRole || metadataRole;
     if (!activeRole) return false;
     if (activeRole === 'super_admin' || activeRole === 'admin_ct') return true;
@@ -132,16 +160,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         profile: profileQueryData || null,
-        role: metadataRole || null, // Role vem instantaneamente do login!
+        role: metadataRole || null,
         viewAsRole,
         isAuthenticated: !!user,
-        // O app NUNCA fica travado se tivermos o user e o role no metadado
         isLoading: !!user && !metadataRole,
         login,
         logout,
         hasModuleAccess,
         refreshProfile: () => refetch(),
         setViewAsRole,
+        setViewAsCT: setViewAsCTProxy,
+        demoSessionId,
+        viewAsCT,
+        whatsappVerified: profileQueryData?.whatsapp_verified || false,
       }}
     >
       {children}

@@ -1,46 +1,49 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { differenceInDays, differenceInHours } from 'date-fns';
-import { AlertCircle, Zap, ShieldCheck } from 'lucide-react';
+import { differenceInDays } from 'date-fns';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
 export function TrialBanner() {
-    const { user } = useAuth();
+    const { user, profile, role } = useAuth();
     const [daysLeft, setDaysLeft] = useState<number | null>(null);
 
+    // Ocultar banner para Super Admin
+    const isSuperAdmin = role === 'super_admin';
+
     useEffect(() => {
-        // Simulação: Pegar do profile.trial_ends_at quando backend estiver pronto.
-        // Por enquanto, dummy trial logic baseada na data de criação (ou mock).
-        if (user?.created_at) {
-            const createdAt = new Date(user.created_at);
-            const trialEnds = new Date(createdAt);
-            trialEnds.setDate(trialEnds.getDate() + 7);
+        if (isSuperAdmin) return;
+
+        // Tentar usar o trial_ends_at real do CT se disponível
+        const trialDate = profile?.ct?.trial_ends_at || user?.created_at;
+
+        if (trialDate) {
+            const startDate = new Date(trialDate);
+            const trialEnds = profile?.ct?.trial_ends_at ? startDate : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
 
             const now = new Date();
             const diff = differenceInDays(trialEnds, now);
 
-            // Se diff < 0, trial acabou.
             setDaysLeft(diff > 0 ? diff : 0);
         } else {
-            // Se for usuário demo antigo, mostra 7 dias fake sempre
             setDaysLeft(7);
         }
-    }, [user]);
+    }, [user, profile, isSuperAdmin]);
 
-    if (daysLeft === null || daysLeft > 7) return null; // Não mostra se não calculou ou se é plano pago (>7 dias de margem?)
+    if (isSuperAdmin || daysLeft === null || daysLeft > 10) return null;
 
     return (
-        <div className={`w-full py-2 px-4 flex items-center justify-between text-xs sm:text-sm font-medium ${daysLeft <= 3 ? 'bg-red-600' : 'bg-blue-600'} text-white shadow-lg relative z-50`}>
+        <div className={`w-full py-2 px-4 flex items-center justify-between text-[10px] sm:text-[11px] font-black italic tracking-tight ${daysLeft <= 3 ? 'bg-red-600' : 'bg-blue-600'} text-white shadow-xl relative z-50 uppercase`}>
             <div className="flex items-center gap-2">
                 {daysLeft <= 3 ? <AlertCircle className="w-4 h-4 animate-pulse" /> : <ShieldCheck className="w-4 h-4" />}
                 <span>
-                    {daysLeft === 0 ? "SEU PERÍODO DE TESTE EXPIROU!" : `VOCÊ TEM ${daysLeft} DIAS DE TESTE GRÁTIS RESTANTES.`}
+                    {daysLeft === 0 ? "SEU PERÍODO DE TESTE EXPIROU!" : `VOCÊ TEM ${daysLeft} ${daysLeft === 1 ? 'DIA' : 'DIAS'} DE TESTE RESTANTE${daysLeft === 1 ? '' : 'S'}.`}
                 </span>
             </div>
 
-            <Link to="/pagamento">
-                <Button size="sm" variant="secondary" className="h-7 text-xs font-bold px-3">
+            <Link to="/assinar">
+                <Button size="sm" variant="secondary" className="h-7 text-[10px] font-black px-4 rounded-lg shadow-lg hover:scale-105 transition-transform bg-white text-black border-none">
                     {daysLeft === 0 ? "ASSINAR AGORA" : "GARANTIR ACESSO PRO"}
                 </Button>
             </Link>
