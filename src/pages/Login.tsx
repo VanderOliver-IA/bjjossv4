@@ -21,26 +21,28 @@ export default function Login() {
         setNotFound(false);
 
         try {
-            // 1. Verificar se o email existe na tabela profiles (seguro para o front)
-            const { data: profile, error: profileError } = await supabase
+            // 1. Tentar verificar o perfil, mas não bloquear o login se falhar (pode ser RLS restringindo anon)
+            const { data: profile } = await supabase
                 .from('profiles')
                 .select('id')
                 .eq('email', email)
                 .maybeSingle();
 
-            if (!profile) {
-                setNotFound(true);
-                setLoading(false);
-                return;
-            }
-
-            // 2. Login real para usuários existentes
+            // 2. Login real
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
             if (error) {
+                // Se o login falhou E o perfil não foi encontrado na etapa 1, 
+                // então podemos dizer com mais confiança que não existe.
+                if (!profile) {
+                    setNotFound(true);
+                    setLoading(false);
+                    return;
+                }
+
                 toast({
                     variant: "destructive",
                     title: "Erro no acesso",
