@@ -1,0 +1,6 @@
+Comecei esse projeto no chatgt, porem ja fiz muitas atualizaçoes e ajustes e ainda nao passei para o chatgpt na pasta original.
+
+Entao, preciso que crie um arquivo com relato 100% fiel de tudo que foi feito ate agora, mostrando que esta sendo tudo criado no antigravity, fale sobre a tecnologia que estamos usando, o banco de dados,os agentes, as skills, os workflows, tudo deve ser digo de forma coerente e organizada, a ideia é fazer com que o chatgpt conheça o andamento do projeto de forma profunda e detalhada, a ponto de voce ( antigravity) e o chatGpt poderem se ajudar.
+Imagine que sao uma dupla que estao juntas para criar o melhor sistema do mundo, por isso, precisa detalhar de forma cirurgica tudo que sabe sobre o projeto, todas as telas, todos os perfis, funçoes, cada botao, utilidade, motivo e qualquer dado ou infrmaçao relevante que ja conversamos aqui, incluindo pontos que erramos, que tentamos e nao funcionou e coisas que tivemos ideias e implementamos com sucesso!
+
+Preciso que esse arquivo seja tao rico em detalhes e ao mesmo tempo com uma organizaçao incrivel que eu possa usar para entender o projeto a fundo, com ele eu posso recriar o sistema deixando no ponto que esta agora.
