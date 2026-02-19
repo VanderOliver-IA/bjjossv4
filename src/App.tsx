@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import LoginDemo from "./pages/LoginDemo";
 import Dashboard from "./pages/Dashboard";
 import Alunos from "./pages/Alunos";
 import Turmas from "./pages/Turmas";
@@ -44,6 +46,9 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/cadastro" element={<SignUp />} />
+              <Route path="/logindemo" element={<LoginDemo />} />
 
               {/* Landing Pages (Public) */}
               <Route path="/vendas/dojo-digital" element={<LandingA />} />

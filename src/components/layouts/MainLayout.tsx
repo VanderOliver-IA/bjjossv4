@@ -5,6 +5,7 @@ import BottomNavigation from '@/components/navigation/BottomNavigation';
 import AppSidebar from '@/components/navigation/AppSidebar';
 import { ShieldAlert, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { TrialBanner } from '@/components/layouts/TrialBanner';
 
 const MainLayout = () => {
   const { isAuthenticated, viewAsRole, setViewAsRole } = useAuth();
@@ -20,6 +21,7 @@ const MainLayout = () => {
 
       {/* Main Content Area */}
       <div className="flex flex-col lg:pl-64">
+        <TrialBanner />
         {/* Simulation Banner */}
         {viewAsRole && (
           <div className="bg-primary/20 backdrop-blur-xl border-b border-primary/30 py-2 px-4 flex items-center justify-between sticky top-0 z-50 animate-in slide-in-from-top duration-500">
