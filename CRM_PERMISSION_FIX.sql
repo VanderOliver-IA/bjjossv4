@@ -1,8 +1,16 @@
--- CRITICAL FIX: CRM PERMISSIONS AND SUPPORT FLOW
--- 1. Garantir que o Super Admin tenha a role correta no banco
-INSERT INTO public.user_roles (user_id, role)
-SELECT id, 'super_admin' FROM auth.users WHERE email = 'omd.vandersonoliveira@gmail.com'
-ON CONFLICT (user_id) DO UPDATE SET role = 'super_admin';
+-- 1. Garantir que o Super Admin tenha a role correta no banco (Sem ON CONFLICT para evitar erro de constraint)
+DO $$ 
+DECLARE
+    v_user_id UUID;
+BEGIN
+    SELECT id INTO v_user_id FROM auth.users WHERE email = 'omd.vandersonoliveira@gmail.com';
+    
+    IF v_user_id IS NOT NULL THEN
+        -- Remove se já existir com outra role ou se quiser garantir apenas super_admin
+        DELETE FROM public.user_roles WHERE user_id = v_user_id;
+        INSERT INTO public.user_roles (user_id, role) VALUES (v_user_id, 'super_admin');
+    END IF;
+END $$;
 
 -- 2. Corrigir RLS da tabela saas_leads para ser EXPLÍCITA
 -- Removemos a anterior para evitar conflitos
