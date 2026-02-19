@@ -319,7 +319,7 @@ export default function SuperAdminLeads() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 flex-1 xl:border-x border-slate-800/50 xl:px-8">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 flex-1 xl:border-x border-slate-800/50 xl:px-8">
                                     <div className="space-y-2">
                                         <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60 italic">WhatsApp</p>
                                         <a
@@ -332,12 +332,12 @@ export default function SuperAdminLeads() {
                                             <ExternalLink className="w-3.5 h-3.5 opacity-20" />
                                         </a>
                                     </div>
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60 italic">Interesses</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {lead.demo_modules_accessed.length > 0 ? lead.demo_modules_accessed.map(m => (
-                                                <span key={m} className="text-[9px] bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg font-black uppercase border border-blue-500/10">{m}</span>
-                                            )) : <span className="text-[9px] text-slate-600 font-bold uppercase italic">Vindo do Cadastro</span>}
+                                    <div className="space-y-2 lg:col-span-2">
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest opacity-60 italic">Notas / Conversa</p>
+                                        <div className="bg-white/5 p-3 rounded-2xl border border-white/5">
+                                            <p className="text-xs font-medium text-slate-400 leading-relaxed italic">
+                                                {lead.notes || 'Sem interações registradas.'}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
