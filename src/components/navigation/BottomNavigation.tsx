@@ -61,9 +61,9 @@ const BottomNavigation = () => {
 
   const safeRightQuick =
     rightQuick &&
-    rightQuick.path !== DASHBOARD_ITEM.path &&
-    rightQuick.path !== primaryAction.path &&
-    rightQuick.path !== safeLeftQuick?.path
+      rightQuick.path !== DASHBOARD_ITEM.path &&
+      rightQuick.path !== primaryAction.path &&
+      rightQuick.path !== safeLeftQuick?.path
       ? rightQuick
       : null;
 
@@ -129,16 +129,17 @@ function BottomNavLink({
 
   if (isPrimary) {
     return (
-      <Link to={item.path} className="flex-1 flex justify-center -translate-y-3">
+      <Link to={item.path} className="flex-1 flex justify-center -translate-y-4">
         <div
           className={cn(
-            "btn-presence w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95",
-            isActive && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+            "w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-lg transition-transform active:scale-90",
+            isActive
+              ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
+              : "bg-secondary text-secondary-foreground"
           )}
           aria-label={item.label}
         >
-          <Icon className="h-6 w-6 text-primary-foreground" />
-          <span className="text-[10px] text-primary-foreground font-medium mt-0.5">{item.label}</span>
+          <Icon className="h-5 w-5" />
         </div>
       </Link>
     );
@@ -148,13 +149,13 @@ function BottomNavLink({
     <Link
       to={item.path}
       className={cn(
-        "flex-1 h-full flex flex-col items-center justify-center gap-1 rounded-lg transition-all active:scale-95",
+        "flex-1 h-full flex flex-col items-center justify-center gap-1 transition-all active:scale-95",
         isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
       )}
       aria-label={item.label}
     >
-      <Icon className={cn("h-6 w-6", isActive && "text-primary")} />
-      <span className={cn("text-[11px]", isActive ? "font-medium text-primary" : "text-muted-foreground")}>
+      <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
+      <span className={cn("text-[9px] font-black uppercase tracking-tight", isActive ? "text-primary" : "text-muted-foreground")}>
         {item.label}
       </span>
     </Link>

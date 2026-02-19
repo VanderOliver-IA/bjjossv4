@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { useAuth, AppRole } from '@/contexts/AuthContext';
 import {
     BarChart3,
@@ -67,16 +67,16 @@ const AppSidebar = () => {
     }
 
     return (
-        <aside className="hidden lg:flex flex-col w-64 h-screen fixed left-0 top-0 z-40 bg-[#0A0A0B]/80 backdrop-blur-xl border-r border-white/10 text-white p-4">
-            <div className="flex items-center gap-3 px-2 mb-8">
-                <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-                    <span className="text-primary font-bold text-xl">B</span>
+        <aside className="hidden lg:flex flex-col w-64 h-screen fixed left-0 top-0 z-40 bg-sidebar-background border-r border-sidebar-border p-4 transition-colors">
+            <Link to="/dashboard" className="flex items-center gap-3 px-3 mb-10 group">
+                <div className="w-10 h-10 bg-primary/5 rounded flex items-center justify-center border border-primary/20 group-hover:belt-glow transition-all">
+                    <span className="text-primary font-black text-xl tracking-tighter uppercase">BO</span>
                 </div>
                 <div>
-                    <h1 className="font-bold text-lg tracking-tight">BjjOss</h1>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none">Management Pro</p>
+                    <h1 className="font-black text-lg tracking-tighter italic uppercase text-foreground leading-none">BjjOss</h1>
+                    <p className="text-[8px] text-muted-foreground font-black uppercase tracking-[0.3em] mt-1 leading-none">Management Pro</p>
                 </div>
-            </div>
+            </Link>
 
             <nav className="flex-1 space-y-1">
                 {menuItems.filter(item => item.access).map((item) => (
@@ -84,34 +84,34 @@ const AppSidebar = () => {
                         key={item.id}
                         to={item.path}
                         className={({ isActive }) => cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group",
+                            "flex items-center gap-3 px-3 py-2 rounded transition-all duration-200 group text-sm font-bold uppercase tracking-tight",
                             isActive
-                                ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]"
-                                : "text-muted-foreground hover:text-white hover:bg-white/5"
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                         )}
                     >
-                        <item.icon className={cn("w-5 h-5", "transition-transform group-hover:scale-110")} />
-                        <span className="font-medium text-sm">{item.label}</span>
+                        <item.icon className={cn("w-4 h-4", "transition-transform group-hover:scale-110")} />
+                        <span>{item.label}</span>
                     </NavLink>
                 ))}
             </nav>
 
-            <div className="mt-auto space-y-4 pt-4 border-t border-white/10">
+            <div className="mt-auto space-y-2 pt-4 border-t border-sidebar-border">
                 {role === 'super_admin' && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start gap-3 bg-white/5 border-white/10 text-xs h-10 rounded-xl">
-                                <Eye className="w-4 h-4 text-primary" />
-                                <span>Vendo como: <strong>{roles.find(r => r.value === viewAsRole)?.label}</strong></span>
+                            <Button variant="outline" className="w-full justify-start gap-3 bg-muted/30 border-sidebar-border text-[10px] font-black uppercase h-9 rounded">
+                                <Eye className="w-3.5 h-3.5 text-primary" />
+                                <span className="truncate">Ver: {roles.find(r => r.value === viewAsRole)?.label}</span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-[#0E0E10] border-white/10 text-white">
-                            <DropdownMenuLabel>Simular Perfil</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-white/5" />
+                        <DropdownMenuContent align="start" className="w-56 bg-card border-border">
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black text-muted-foreground">Simular Perfil</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                             {roles.map((r) => (
                                 <DropdownMenuItem
                                     key={r.label}
-                                    className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                                    className="focus:bg-primary/10 focus:text-primary cursor-pointer text-xs font-bold uppercase"
                                     onClick={() => setViewAsRole(r.value)}
                                 >
                                     {r.label}
@@ -124,10 +124,10 @@ const AppSidebar = () => {
                 <Button
                     variant="ghost"
                     onClick={logout}
-                    className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl px-3 transition-colors"
+                    className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded h-10 px-3 transition-colors"
                 >
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium text-sm">Sair</span>
+                    <LogOut className="w-4 h-4" />
+                    <span className="font-bold text-xs uppercase">Sair</span>
                 </Button>
             </div>
         </aside>
