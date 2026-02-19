@@ -161,9 +161,9 @@ const LandingB = () => {
                         <div className="relative z-10">
                             <h2 className="text-3xl font-bold text-white mb-4">Acesso Administrativo Temporário</h2>
                             <p className="text-slate-400 mb-8 max-w-xl mx-auto font-mono text-sm">
-                     > ACCESS_LEVEL: ADMIN_CT <br />
-                     > STATUS: GRANTED <br />
-                     > SESSION_ID: DEMO_MODE_ACTIVE
+                                &gt; ACCESS_LEVEL: ADMIN_CT <br />
+                                &gt; STATUS: GRANTED <br />
+                                &gt; SESSION_ID: DEMO_MODE_ACTIVE
                             </p>
 
                             <div className="scale-110">
