@@ -1,8 +1,11 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Camera, Upload, Check, RotateCcw, User, UserSquare2, UserCircle2 } from 'lucide-react';
+import { Camera, Upload, Check, RotateCcw, User, UserSquare2, UserCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { optimizeAndUpload } from '@/lib/imageOptimizer';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PhotoSectionProps {
     label: string;
@@ -57,13 +60,15 @@ const PhotoSection = ({ label, icon: Icon, onCapture }: PhotoSectionProps) => {
     );
 };
 
-export function StudentPhotoUpload() {
+export function StudentPhotoUpload({ studentId }: { studentId: string }) {
     const { toast } = useToast();
+    const { profile, viewAsCT } = useAuth();
     const [photos, setPhotos] = useState<{ front?: File, left?: File, right?: File }>({});
+    const [isUploading, setIsUploading] = useState(false);
 
     const isComplete = photos.front && photos.left && photos.right;
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!isComplete) {
             toast({
                 variant: "destructive",
@@ -72,10 +77,38 @@ export function StudentPhotoUpload() {
             });
             return;
         }
-        toast({
-            title: "Biometria atualizada!",
-            description: "As fotos foram processadas com sucesso."
-        });
+
+        const ctId = viewAsCT || profile?.ct_id;
+        if (!ctId || !studentId) return;
+
+        setIsUploading(true);
+
+        try {
+            const frontUrl = await optimizeAndUpload(photos.front, `${ctId}/${studentId}/front.jpg`);
+            const leftUrl = await optimizeAndUpload(photos.left, `${ctId}/${studentId}/left.jpg`);
+            const rightUrl = await optimizeAndUpload(photos.right, `${ctId}/${studentId}/right.jpg`);
+
+            if (frontUrl || leftUrl || rightUrl) {
+                await supabase.from('students').update({
+                    photo_front: frontUrl,
+                    ...(leftUrl && { photo_left: leftUrl }),
+                    ...(rightUrl && { photo_right: rightUrl }),
+                }).eq('id', studentId);
+
+                toast({
+                    title: "Biometria atualizada!",
+                    description: "As fotos foram processadas, otimizadas e salvas com sucesso."
+                });
+            }
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: "Erro ao atualizar",
+                description: "Ocorreu um erro ao otimizar e enviar as imagens."
+            });
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -106,9 +139,12 @@ export function StudentPhotoUpload() {
 
                 <Button
                     onClick={handleSave}
-                    className={`w-full h-12 font-bold rounded-xl transition-all ${isComplete ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-800 text-slate-500'}`}
+                    disabled={!isComplete || isUploading}
+                    className={`w-full h-12 font-bold rounded-xl transition-all ${isComplete ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}
                 >
-                    {isComplete ? 'Salvar Fotos de Aluno' : 'Aguardando 3 Fotos...'}
+                    {isUploading ? (
+                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processando Imagens...</>
+                    ) : isComplete ? 'Salvar Fotos de Aluno' : 'Aguardando 3 Fotos...'}
                 </Button>
 
                 <p className="text-[10px] text-center text-slate-500">

@@ -14,6 +14,7 @@ import QRCodeDialog from '@/components/students/QRCodeDialog';
 import { mockStudents } from '@/data/mockData';
 import { Student, BeltType } from '@/types';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
+import { BulkImportStudents } from '@/components/students/BulkImportStudents';
 import { cn } from '@/lib/utils';
 
 const Alunos = () => {
@@ -47,7 +48,10 @@ const Alunos = () => {
           <h1 className="text-3xl font-black italic uppercase tracking-tighter">Gestão de <span className="text-primary">Alunos</span></h1>
           <p className="text-sm text-muted-foreground font-medium">Controle de membros, graduações e status financeiro.</p>
         </div>
-        <AddStudentDialog />
+        <div className="flex items-center gap-3">
+          <BulkImportStudents />
+          <AddStudentDialog />
+        </div>
       </div>
 
       {/* Modern Stats Grid */}
