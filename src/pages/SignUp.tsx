@@ -61,13 +61,41 @@ export default function SignUp() {
 
             if (error) throw error;
 
-            // 2. Notificar sobre a verificação
-            toast({
-                title: "Quase lá! 🥊",
-                description: "Sua conta foi pré-criada. Agora vamos validar seu WhatsApp.",
+            // 2. Gerar Código no Supabase
+            const { data: otpData, error: otpError } = await supabase.rpc('generate_whatsapp_code', {
+                p_email: formData.email,
+                p_whatsapp: formData.whatsapp
             });
 
-            // 3. Redirecionar para verificação WhatsApp
+            if (otpError) {
+                console.error("Erro ao gerar OTP:", otpError);
+            }
+
+            // 3. Notificar N8N para disparar WhatsApp
+            try {
+                await fetch('https://n8n.olamundodigital.cloud/webhook/otp-send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: formData.whatsapp,
+                        email: formData.email,
+                        code: (otpData as any)?.code,
+                        evolution_url: 'https://evo.olamundodigital.cloud',
+                        evolution_instance: 'BjjOss',
+                        evolution_apikey: 'sua_chave'
+                    })
+                });
+            } catch (n8nErr) {
+                console.warn("Falha ao avisar n8n, mas seguindo...", n8nErr);
+            }
+
+            // 4. Notificar sobre a verificação
+            toast({
+                title: "Código enviado! 🥋",
+                description: "Enviamos um código de ativação para seu WhatsApp.",
+            });
+
+            // 5. Redirecionar para verificação WhatsApp
             const params = new URLSearchParams({
                 email: formData.email,
                 whatsapp: formData.whatsapp

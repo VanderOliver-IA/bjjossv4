@@ -1,0 +1,69 @@
+{
+  "name": "BjjOss - Boas-Vindas Aluno",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-student",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "webhookId": "bjjoss-new-student"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evolution_url + '/message/sendText/' + $json.evolution_instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.evolution_apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"OSS! 🥋 Bem-vindo à família, *{{ $json.name }}*!\\n\\nSeu cadastro na academia foi realizado com sucesso. Sua faixa atual é: *{{ $json.belt }}*.\"\n}",
+        "options": {}
+      },
+      "id": "evolution-api",
+      "name": "Evolution API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        400,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": ""
+  },
+  "pinData": {}
+}

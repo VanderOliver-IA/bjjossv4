@@ -9,8 +9,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
-import { Plus, Search, Filter, Eye, Edit, QrCode, User } from 'lucide-react';
+import { Plus, Search, Filter, Eye, Edit, QrCode, User, Smartphone } from 'lucide-react';
 import QRCodeDialog from '@/components/students/QRCodeDialog';
+import { SendWhatsAppDialog } from '@/components/students/SendWhatsAppDialog';
 import { mockStudents } from '@/data/mockData';
 import { Student, BeltType } from '@/types';
 import { AddStudentDialog } from '@/components/students/AddStudentDialog';
@@ -21,11 +22,18 @@ const Alunos = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isQRCOdeOpen, setIsQRCodeOpen] = useState(false);
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
+  const [whatsAppStudent, setWhatsAppStudent] = useState<{ name: string, phone: string } | null>(null);
 
   const filteredStudents = mockStudents.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleOpenWhatsApp = (student: Student) => {
+    setWhatsAppStudent({ name: student.name, phone: student.phone });
+    setIsWhatsAppOpen(true);
+  };
 
   const beltConfig: Record<BeltType, string> = {
     branca: 'bg-[hsl(var(--belt-white))] text-black border-border',
@@ -133,6 +141,14 @@ const Alunos = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 hover:bg-green-500/10 hover:text-green-500 rounded-md"
+                        onClick={() => handleOpenWhatsApp(student)}
+                      >
+                        <Smartphone className="h-4 w-4" />
+                      </Button>
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/10 hover:text-primary rounded-md" onClick={() => setSelectedStudent(student)}>
@@ -174,6 +190,15 @@ const Alunos = () => {
           onOpenChange={setIsQRCodeOpen}
           studentId={selectedStudent.id}
           studentName={selectedStudent.name}
+        />
+      )}
+
+      {whatsAppStudent && (
+        <SendWhatsAppDialog
+          isOpen={isWhatsAppOpen}
+          onOpenChange={setIsWhatsAppOpen}
+          studentName={whatsAppStudent.name}
+          studentPhone={whatsAppStudent.phone}
         />
       )}
     </div>

@@ -1,4 +1,0 @@
-project_id = "uedsuplzfwudmymofvhi"
-
-[functions.facial-recognition]
-verify_jwt = false
