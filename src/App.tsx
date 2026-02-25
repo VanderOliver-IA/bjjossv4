@@ -50,7 +50,6 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <VersionBadge />
             <BrowserRouter>
               <DemoGuardModal />
               <Routes>

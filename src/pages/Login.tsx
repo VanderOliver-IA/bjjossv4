@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowRight } from "lucide-react";
+import { VersionBadge } from "@/components/VersionBadge";
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -237,6 +238,7 @@ export default function Login() {
                     &copy; 2026 Antigravity Systems. Todos os direitos reservados.
                 </p>
             </div>
+            <VersionBadge />
         </div>
     );
 }
