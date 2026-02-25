@@ -33,6 +33,7 @@ import FeatureFlags from "./pages/FeatureFlags";
 import GlobalLogs from "./pages/GlobalLogs";
 import CaixaDia from "./pages/CaixaDia";
 import NotasPessoais from "./pages/NotasPessoais";
+import { VersionBadge } from "./components/VersionBadge";
 import MainLayout from "./components/layouts/MainLayout";
 import LandingA from "./pages/landing/LandingA";
 import LandingB from "./pages/landing/LandingB";
@@ -49,6 +50,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <VersionBadge />
             <BrowserRouter>
               <DemoGuardModal />
               <Routes>
