@@ -80,9 +80,9 @@ export default function SignUp() {
                         phone: formData.whatsapp,
                         email: formData.email,
                         code: (otpData as any)?.code,
-                        evolution_url: 'https://evo.olamundodigital.cloud',
-                        evolution_instance: 'BjjOss',
-                        evolution_apikey: 'sua_chave'
+                        evolution_url: 'https://evolutionapi.olamundodigital.cloud',
+                        evolution_instance: 'bjjoss',
+                        evolution_apikey: 'FBD5B5D71191-437C-B19B-09C083D1BD71'
                     })
                 });
             } catch (n8nErr) {

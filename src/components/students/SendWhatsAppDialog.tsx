@@ -27,7 +27,7 @@ export function SendWhatsAppDialog({ isOpen, onOpenChange, studentName, studentP
                 body: JSON.stringify({
                     phone: studentPhone,
                     text: message,
-                    evolution_instance: 'BjjOss' // Padrão
+                    evolution_instance: 'bjjoss' // Padrão
                 })
             });
 

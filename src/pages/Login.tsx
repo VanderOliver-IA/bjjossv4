@@ -48,9 +48,9 @@ export default function Login() {
                         body: JSON.stringify({
                             phone: whatsapp,
                             email: email,
-                            evolution_url: 'https://evo.olamundodigital.cloud', // Mock/Config
-                            evolution_instance: 'BjjOss',
-                            evolution_apikey: 'sua_chave'
+                            evolution_url: 'https://evolutionapi.olamundodigital.cloud',
+                            evolution_instance: 'bjjoss',
+                            evolution_apikey: 'FBD5B5D71191-437C-B19B-09C083D1BD71'
                         })
                     });
                 } catch (n8nErr) {
