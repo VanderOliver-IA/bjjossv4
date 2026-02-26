@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export const VersionBadge = () => {
-    const commitHash = "7541dfd"; // Hash do último commit de credenciais real
+    const commitHash = "f475719"; // Versão final com sincronização de código
     const [isVisible, setIsVisible] = useState(true);
 
     if (!isVisible) return null;
