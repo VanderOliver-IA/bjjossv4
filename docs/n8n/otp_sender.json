@@ -11,34 +11,8 @@
             "name": "Webhook",
             "type": "n8n-nodes-base.webhook",
             "typeVersion": 1,
-            "position": [
-                100,
-                300
-            ],
+            "position": [ 100, 300 ],
             "webhookId": "bjjoss-otp-send"
-        },
-        {
-            "parameters": {
-                "assignments": {
-                    "assignments": [
-                        {
-                            "id": "gen-otp",
-                            "name": "otp_code",
-                            "value": "={{ Math.floor(100000 + Math.random() * 900000).toString() }}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "id": "generate-code",
-            "name": "Generate OTP",
-            "type": "n8n-nodes-base.set",
-            "typeVersion": 3.4,
-            "position": [
-                320,
-                300
-            ]
         },
         {
             "parameters": {
@@ -55,49 +29,19 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "={\n  \"number\": \"{{ $node[\"Webhook\"].json[\"phone\"] }}\",\n  \"text\": \"🥋 *BjjOss*\\n\\nSeu código de verificação é: *{{ $json.otp_code }}*\\n\\nEste código expira em 5 minutos.\"\n}",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"🥋 *BjjOss*\n\nSeu código de verificação é: *{{ $json.code }}*\n\nEste código expira em 10 minutos.\"\n}",
                 "options": {}
             },
             "id": "evolution-api-sender",
             "name": "Evolution API",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
-            "position": [
-                540,
-                300
-            ]
+            "position": [ 400, 300 ]
         }
     ],
     "connections": {
         "Webhook": {
-            "main": [
-                [
-                    {
-                        "node": "Generate OTP",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Generate OTP": {
-            "main": [
-                [
-                    {
-                        "node": "Evolution API",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
+            "main": [ [ { "node": "Evolution API", "type": "main", "index": 0 } ] ]
         }
-    },
-    "settings": {
-        "executionOrder": "v1"
-    },
-    "staticData": null,
-    "meta": {
-        "templateId": ""
-    },
-    "pinData": {}
+    }
 }
